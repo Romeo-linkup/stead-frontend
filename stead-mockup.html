@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ZMR — Property Management</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,400;0,500;0,600;1,400&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1C2321; --paper:#F6F4EE; --paper2:#EDE8DC;
+    --brass:#A8823A; --brass-dark:#8A6A2C; --slate:#5B6570;
+    --line:#DAD3C2; --forest:#3F6B4E; --rust:#A14E3B; --white:#FFFFFF;
+    --radius:6px; --sidebar-w:238px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{background:var(--paper); font-family:'Public Sans',-apple-system,sans-serif; color:var(--ink); min-height:100vh;}
+  h1,h2,h3,.serif{font-family:'Newsreader',Georgia,serif;}
+  a{color:inherit;}
+
+  /* ===== app shell ===== */
+  #app{display:flex; min-height:100vh;}
+
+  /* sidebar (desktop) */
+  .sidebar{
+    width:var(--sidebar-w); flex-shrink:0; background:var(--ink); color:var(--paper);
+    display:none; flex-direction:column; padding:22px 14px; position:fixed; top:0; bottom:0; left:0; overflow-y:auto;
+  }
+  .sidebar .brand{display:flex; align-items:center; gap:10px; padding:0 6px 22px; border-bottom:1px solid rgba(246,244,238,0.12); margin-bottom:16px;}
+  .sidebar .brand .mark{width:34px; height:34px; border-radius:8px; background:var(--brass); display:flex; align-items:center; justify-content:center; flex-shrink:0;}
+  .sidebar .brand .mark svg{width:18px; height:18px; stroke:var(--ink); fill:none; stroke-width:1.6;}
+  .sidebar .brand .txt div:first-child{font-family:'Newsreader',serif; font-weight:600; font-size:16px;}
+  .sidebar .brand .txt div:last-child{font-size:10.5px; color:#B9BDB6;}
+  .sidebar .who{display:flex; align-items:center; gap:10px; padding:0 6px 18px;}
+  .sidebar nav{display:flex; flex-direction:column; gap:2px; flex:1;}
+  .sidebar nav a{
+    display:flex; align-items:center; gap:11px; padding:9px 10px; border-radius:5px; font-size:13px; font-weight:500;
+    color:#D9D6C8; cursor:pointer; text-decoration:none;
+  }
+  .sidebar nav a svg{width:16px; height:16px; stroke:#B9BDB6; fill:none; stroke-width:1.6; flex-shrink:0;}
+  .sidebar nav a:hover{background:rgba(246,244,238,0.06);}
+  .sidebar nav a.active{background:var(--brass); color:#1C2321; font-weight:700;}
+  .sidebar nav a.active svg{stroke:#1C2321;}
+  .sidebar .logout{display:flex; align-items:center; gap:11px; padding:9px 10px; font-size:12.5px; color:#D68A78; cursor:pointer; margin-top:6px; border-top:1px solid rgba(246,244,238,0.12); padding-top:14px;}
+  .sidebar .logout svg{width:15px; height:15px; stroke:#D68A78; fill:none; stroke-width:1.6;}
+
+  /* main column */
+  .main{flex:1; min-width:0; display:flex; flex-direction:column;}
+
+  /* topbar */
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between; padding:14px 20px;
+    background:var(--paper); border-bottom:1px solid var(--line); position:sticky; top:0; z-index:15;
+  }
+  .topbar .left, .topbar .right{display:flex; align-items:center; gap:8px;}
+  .topbar .pagetitle{font-family:'Newsreader',serif; font-weight:600; font-size:17px;}
+  .iconbtn{width:34px; height:34px; display:flex; align-items:center; justify-content:center; border-radius:50%; cursor:pointer; background:transparent; border:none;}
+  .iconbtn:hover{background:var(--paper2);}
+  .iconbtn svg{width:19px; height:19px; stroke:var(--ink); fill:none; stroke-width:1.6;}
+  .sos-btn{
+    display:flex; align-items:center; gap:5px; background:var(--rust); color:#fff; border:none;
+    padding:7px 12px; border-radius:20px; font-size:12px; font-weight:700; letter-spacing:0.3px; cursor:pointer;
+  }
+  .sos-btn svg{width:14px; height:14px; stroke:#fff; fill:none; stroke-width:2;}
+  .hamburger-toggle{display:flex;}
+
+  /* content */
+  .content{flex:1; padding:20px; max-width:900px; width:100%; margin:0 auto;}
+  .pagehead{margin:2px 0 16px;}
+  .pagehead h2{margin:0 0 3px; font-size:22px; font-weight:600;}
+  .pagehead p{margin:0; font-size:13px; color:var(--slate);}
+
+  .card{background:var(--white); border:1px solid var(--line); border-radius:var(--radius); padding:16px; margin-bottom:14px;}
+  .hairline{border-top:1px solid var(--line); margin:12px 0;}
+  .row{display:flex; align-items:center; justify-content:space-between; gap:10px;}
+  .muted{color:var(--slate);} .small{font-size:12.5px;}
+  .amount{font-family:'Newsreader',serif; font-size:27px; font-weight:600;}
+
+  .badge{display:inline-flex; align-items:center; gap:5px; font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:20px; letter-spacing:0.2px; white-space:nowrap;}
+  .badge.outstanding{background:#F6E4E0; color:var(--rust);}
+  .badge.pending{background:#F3EBD8; color:var(--brass-dark);}
+  .badge.finished{background:#E1EBE3; color:var(--forest);}
+  .badge.new{background:#E7E9F5; color:#41457A;}
+
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:6px; border:1px solid var(--ink);
+    background:var(--ink); color:var(--white); padding:10px 16px; border-radius:4px; font-size:13px; font-weight:600;
+    cursor:pointer; font-family:inherit;
+  }
+  .btn.block{width:100%;}
+  .btn.secondary{background:transparent; color:var(--ink); border:1px solid var(--line);}
+  .btn.brass{background:var(--brass); border-color:var(--brass); color:#fff;}
+  .btn.rust{background:var(--rust); border-color:var(--rust); color:#fff;}
+  .btn.sm{padding:6px 11px; font-size:12px;}
+  .btn:hover{opacity:0.9;}
+
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+  .kpi-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-bottom:14px;}
+  .kpi{background:#fff; border:1px solid var(--line); border-radius:var(--radius); padding:13px;}
+  .kpi .num{font-family:'Newsreader',serif; font-size:22px; font-weight:600;}
+  .kpi .lbl{font-size:11px; color:var(--slate);}
+
+  .taskimg-row{display:flex; gap:8px; margin-top:8px;}
+  .taskimg{flex:1; height:64px; border-radius:4px; background:linear-gradient(135deg,#DDD6C4,#EDE8DC); display:flex; align-items:center; justify-content:center; font-size:10px; color:var(--slate); border:1px solid var(--line); cursor:pointer;}
+  .taskimg.filled{background:linear-gradient(135deg,#CFE3D4,#E1EBE3); color:var(--forest); font-weight:600;}
+
+  .toggle-row{display:flex; align-items:center; justify-content:space-between; padding:10px 0;}
+  .switch{width:38px; height:22px; border-radius:20px; background:var(--line); position:relative; cursor:pointer; flex-shrink:0;}
+  .switch .dot{width:18px; height:18px; border-radius:50%; background:#fff; position:absolute; top:2px; left:2px; transition:left .15s;}
+  .switch.on{background:var(--brass);} .switch.on .dot{left:18px;}
+
+  textarea.field, select.field, input.field{
+    width:100%; border:1px solid var(--line); border-radius:4px; padding:10px; font-family:inherit; font-size:12.5px; background:#fff; margin-bottom:10px;
+  }
+  label.field-label{font-size:11.5px; font-weight:600; color:var(--slate); display:block; margin-bottom:5px;}
+
+  .prop-row{display:flex; gap:10px; align-items:center; padding:11px 0; border-bottom:1px solid var(--line);}
+  .prop-row:last-child{border-bottom:none;}
+  .prop-thumb{width:44px; height:44px; border-radius:4px; background:linear-gradient(135deg,#DDD6C4,#EDE8DC); flex-shrink:0;}
+  .score-bar{width:100%; height:5px; background:var(--paper2); border-radius:3px; margin-top:4px; overflow:hidden;}
+  .score-bar > div{height:100%; background:var(--brass);}
+
+  table.simple{width:100%; border-collapse:collapse; font-size:12px;}
+  table.simple th{text-align:left; color:var(--slate); font-weight:600; padding:7px 5px; border-bottom:1px solid var(--line); white-space:nowrap;}
+  table.simple td{padding:9px 5px; border-bottom:1px solid var(--line); vertical-align:middle;}
+  .table-wrap{overflow-x:auto;}
+
+  /* lease document */
+  .doc{background:#fff; border:1px solid var(--line); padding:22px 18px; font-family:'Newsreader',serif; font-size:12.5px; line-height:1.6; color:#242424;}
+  .doc h3{text-align:center; font-size:15px; margin:0 0 2px; letter-spacing:0.3px;}
+  .doc .sub-h{text-align:center; font-size:12px; margin:0 0 16px; color:#555;}
+  .doc .parties{text-align:center; margin-bottom:16px; font-size:12px;}
+  .doc .parties b{display:block; font-size:13px; margin-top:2px;}
+  .doc .clause{margin-bottom:10px;} .doc .clause .num{font-weight:600;}
+  .doc hr{border:none; border-top:1px solid #ddd; margin:16px 0;}
+  .sigpad{border:1.5px dashed var(--brass); border-radius:4px; height:70px; display:flex; align-items:center; justify-content:center; color:var(--brass-dark); font-size:11px; margin:10px 0; background:#FCF9F2; cursor:pointer;}
+  .sigpad.signed{border-style:solid; font-family:'Newsreader',serif; font-style:italic; font-size:22px; color:var(--ink); background:#fff;}
+
+  /* invoice builder */
+  .inv-table{width:100%; border-collapse:collapse; font-size:12px; margin-bottom:10px;}
+  .inv-table th{text-align:left; font-size:10.5px; color:var(--slate); font-weight:700; padding:6px 4px; border-bottom:1px solid var(--line);}
+  .inv-table td{padding:5px 4px; border-bottom:1px solid var(--line);}
+  .inv-table input{width:100%; border:1px solid var(--line); border-radius:3px; padding:6px 7px; font-size:12px; font-family:inherit;}
+  .inv-table input.qty, .inv-table input.price{width:66px;}
+  .inv-table .linetotal{font-weight:600; white-space:nowrap;}
+  .inv-table .rmv{cursor:pointer; color:var(--rust); font-size:16px; line-height:1; padding:2px 6px;}
+  .grand-row{display:flex; justify-content:flex-end; align-items:baseline; gap:10px; padding:8px 4px; border-top:2px solid var(--ink);}
+  .grand-row .lbl{font-size:12px; color:var(--slate); font-weight:600;}
+  .grand-row .val{font-family:'Newsreader',serif; font-size:22px; font-weight:600;}
+  .receipt-row{display:flex; gap:8px; flex-wrap:wrap; margin:6px 0 10px;}
+  .receipt-thumb{width:56px; height:56px; border-radius:4px; background:linear-gradient(135deg,#DDD6C4,#EDE8DC); display:flex; align-items:center; justify-content:center; font-size:9px; color:var(--slate); border:1px solid var(--line); text-align:center; padding:2px;}
+  .add-receipt{width:56px; height:56px; border-radius:4px; border:1.5px dashed var(--line); display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--slate); flex-shrink:0;}
+  .add-receipt svg{width:16px; height:16px; stroke:var(--slate); fill:none; stroke-width:1.6;}
+  .invoice-box{background:#FCFAF4; border:1px solid var(--line); border-radius:var(--radius); padding:14px; margin-top:10px;}
+
+  /* hamburger overlay */
+  .menu-overlay{position:fixed; inset:0; background:rgba(28,35,33,0.45); z-index:40; display:none;}
+  .menu-overlay.open{display:block;}
+  .menu-panel{position:absolute; top:0; right:0; bottom:0; width:290px; max-width:82%; background:var(--paper); padding:20px 16px; overflow-y:auto; box-shadow:-8px 0 24px rgba(0,0,0,0.15);}
+  .menu-panel .who{display:flex; align-items:center; gap:10px; margin-bottom:18px;}
+  .avatar{width:38px; height:38px; border-radius:50%; background:var(--brass); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; font-family:'Newsreader',serif; flex-shrink:0;}
+  .menu-panel .who .n{font-weight:700; font-size:13.5px;} .menu-panel .who .d{font-size:11px; color:var(--slate);}
+  .menu-list{display:flex; flex-direction:column;}
+  .menu-list a{display:flex; align-items:center; gap:12px; padding:11px 4px; border-bottom:1px solid var(--line); color:var(--ink); text-decoration:none; font-size:13.5px; font-weight:500; cursor:pointer;}
+  .menu-list a svg{width:17px; height:17px; stroke:var(--ink); fill:none; stroke-width:1.5; flex-shrink:0;}
+  .menu-list a.logout{color:var(--rust); margin-top:10px; border-bottom:none;} .menu-list a.logout svg{stroke:var(--rust);}
+
+  /* confirm modal (SOS) */
+  .modal-overlay{position:fixed; inset:0; background:rgba(28,35,33,0.55); z-index:60; display:none; align-items:center; justify-content:center; padding:20px;}
+  .modal-overlay.open{display:flex;}
+  .modal-box{background:#fff; border-radius:8px; padding:24px 22px; max-width:340px; width:100%; text-align:center;}
+  .modal-box .ic{width:52px; height:52px; border-radius:50%; background:#F6E4E0; display:flex; align-items:center; justify-content:center; margin:0 auto 14px;}
+  .modal-box .ic svg{width:24px; height:24px; stroke:var(--rust); fill:none; stroke-width:1.7;}
+  .modal-box h3{margin:0 0 8px; font-size:18px;}
+  .modal-box p{margin:0 0 18px; font-size:12.5px; color:var(--slate); line-height:1.5;}
+  .modal-actions{display:flex; gap:8px;}
+  .toast{position:fixed; bottom:22px; left:50%; transform:translateX(-50%); background:var(--ink); color:#fff; padding:11px 18px; border-radius:24px; font-size:12.5px; z-index:70; display:none; box-shadow:0 8px 20px rgba(0,0,0,0.25);}
+  .toast.show{display:block;}
+
+  /* bottom nav (mobile) */
+  .bottomnav{display:flex; background:var(--white); border-top:1px solid var(--line); padding:8px 6px 12px; position:sticky; bottom:0; z-index:15;}
+  .bottomnav .navitem{flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; cursor:pointer; color:var(--slate);}
+  .bottomnav .navitem.active{color:var(--brass-dark);}
+  .bottomnav svg{width:19px; height:19px; stroke:currentColor; fill:none; stroke-width:1.6;}
+  .bottomnav span{font-size:9.5px; font-weight:600;}
+
+  /* login */
+  .login-screen{min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px;}
+  .login-card{width:100%; max-width:380px; background:#fff; border:1px solid var(--line); border-radius:10px; padding:32px 28px;}
+  .login-card .mark{width:52px; height:52px; border-radius:12px; background:var(--ink); display:flex; align-items:center; justify-content:center; margin-bottom:20px;}
+  .login-card .mark svg{width:26px; height:26px; stroke:var(--brass); fill:none; stroke-width:1.4;}
+  .login-card h1{font-size:25px; margin:0 0 6px; font-weight:600;}
+  .login-card p.sub{color:var(--slate); font-size:13px; margin:0 0 24px; line-height:1.5;}
+  .code-input{width:100%; border:1px solid var(--line); border-radius:4px; padding:14px; font-size:16px; letter-spacing:3px; text-align:center; font-family:'Newsreader',serif; margin-bottom:14px; background:#fff; text-transform:uppercase;}
+  .code-input:focus{outline:none; border-color:var(--brass);}
+  .chip-row{display:flex; flex-wrap:wrap; gap:6px; margin-top:20px;}
+  .chip{font-size:10.5px; border:1px solid var(--line); background:#fff; padding:5px 9px; border-radius:20px; cursor:pointer; color:var(--slate);}
+  .chip:hover{border-color:var(--brass); color:var(--brass-dark);}
+  .login-foot{font-size:11px; color:var(--slate); text-align:center; margin-top:22px; line-height:1.5;}
+
+  .notice-item{padding:13px 0; border-bottom:1px solid var(--line);}
+  .notice-item:last-child{border-bottom:none;}
+  .notice-item .row{margin-bottom:4px;}
+
+  /* ===== responsive ===== */
+  @media (min-width:900px){
+    .sidebar{display:flex;}
+    .main{margin-left:var(--sidebar-w);}
+    .hamburger-toggle{display:none;}
+    .bottomnav{display:none;}
+    .content{padding:28px 32px; max-width:960px;}
+    .kpi-grid{grid-template-columns:repeat(4,1fr);}
+  }
+  @media (max-width:640px){
+    .grid2{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ---------------- icons ---------------- */
+const ICON = {
+  home:'<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/>',
+  wallet:'<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M16 12h3"/><path d="M3 9h18"/>',
+  wrench:'<path d="M14.7 6.3a4 4 0 0 1-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 1 5.4-5.4L21 6l-3-3z"/>',
+  doc:'<path d="M7 2h7l5 5v15H7z"/><path d="M14 2v5h5"/><path d="M9 13h6"/><path d="M9 17h6"/>',
+  invoice:'<path d="M7 2h10v20l-2.5-1.5L12 22l-2.5-1.5L7 22Z"/><path d="M9.5 7h5M9.5 10.5h5M9.5 14h3"/>',
+  msg2:'<path d="M4 4h16v12H8l-4 4z"/>',
+  bullhorn:'<path d="M3 9v6l5 1 9 4V4L8 8l-5 1z"/><path d="M17 8v8"/><path d="M8 16v3a2 2 0 0 0 2 2h1"/>',
+  info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><path d="M12 7v.5"/>',
+  siren:'<path d="M12 2a7 7 0 0 0-7 7v6h14V9a7 7 0 0 0-7-7z"/><path d="M12 2v2"/><path d="M2 22h20"/><path d="M5 15v7"/><path d="M19 15v7"/>',
+  menu:'<path d="M3 6h18"/><path d="M3 12h18"/><path d="M3 18h18"/>',
+  bell:'<path d="M6 8a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6"/><path d="M10 21a2 2 0 0 0 4 0"/>',
+  check:'<path d="M20 6 9 17l-5-5"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>',
+  users:'<circle cx="9" cy="8" r="3.2"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 8.2a3 3 0 1 1 3.4 3"/><path d="M16.5 14.3A6.5 6.5 0 0 1 21.5 20"/>',
+  building:'<rect x="4" y="3" width="16" height="18"/><path d="M9 8h1M14 8h1M9 12h1M14 12h1M9 16h1M14 16h1"/>',
+  key:'<circle cx="8" cy="15" r="4"/><path d="M11 12 20 3"/><path d="M17 6l2 2"/><path d="M14 9l2 2"/>',
+  plus:'<path d="M12 5v14"/><path d="M5 12h14"/>',
+  logout:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>',
+  list:'<path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><circle cx="3.5" cy="6" r="1"/><circle cx="3.5" cy="12" r="1"/><circle cx="3.5" cy="18" r="1"/>',
+  gauge:'<path d="M12 21a9 9 0 1 1 9-9"/><path d="M12 12 16 8"/>',
+  profile:'<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/>',
+  sliders:'<path d="M4 6h6"/><path d="M14 6h6"/><circle cx="12" cy="6" r="2"/><path d="M4 12h10"/><path d="M18 12h2"/><circle cx="16" cy="12" r="2"/><path d="M4 18h6"/><path d="M14 18h6"/><circle cx="12" cy="18" r="2"/>',
+  upload:'<path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>',
+};
+function ic(name){ return `<svg viewBox="0 0 24 24">${ICON[name]||''}</svg>`; }
+
+/* ---------------- nav per role ---------------- */
+const NAV = {
+  tenant: [
+    {id:'home', label:'Home', icon:'home'},
+    {id:'pay', label:'Rent & accounts', icon:'wallet'},
+    {id:'maint', label:'Maintenance', icon:'wrench'},
+    {id:'lease', label:'My lease', icon:'doc'},
+    {id:'complaint', label:'Complaints', icon:'msg2'},
+    {id:'notices', label:'Notices', icon:'bullhorn'},
+    {id:'info', label:'Property info', icon:'info'},
+    {id:'profile', label:'My profile', icon:'profile'},
+  ],
+  provider: [
+    {id:'home', label:'My tasks', icon:'wrench'},
+    {id:'notices', label:'Notices', icon:'bullhorn'},
+    {id:'info', label:'Site info', icon:'info'},
+    {id:'profile', label:'My profile', icon:'profile'},
+  ],
+  admin: [
+    {id:'home', label:'Overview', icon:'gauge'},
+    {id:'districts', label:'Districts', icon:'building'},
+    {id:'properties', label:'Properties', icon:'building'},
+    {id:'tenants', label:'Tenants & leases', icon:'users'},
+    {id:'maint', label:'Maintenance', icon:'wrench'},
+    {id:'invoices', label:'Invoices', icon:'invoice'},
+    {id:'complaint', label:'Complaints', icon:'msg2'},
+    {id:'payments', label:'Payments', icon:'wallet'},
+    {id:'notices', label:'Notices', icon:'bullhorn'},
+    {id:'codes', label:'Codes & roles', icon:'key'},
+    {id:'settings', label:'Settings', icon:'sliders'},
+    {id:'audit', label:'Audit log', icon:'list'},
+    {id:'sos', label:'Emergency alerts', icon:'siren'},
+    {id:'profile', label:'My profile', icon:'profile'},
+  ]
+};
+const BOTTOM = {
+  tenant: ['home','maint','notices','__menu'],
+  provider: ['home','notices','__menu'],
+  admin: ['home','maint','payments','__menu'],
+};
+const WHO = {
+  tenant: {name:'Nompumelelo Ngubane', sub:'Redfern Heights · Unit 206 · Pinetown'},
+  provider: {name:'Sipho Dlamini', sub:'Cleaning & maintenance · Pinetown'},
+  admin: {name:'Zikhona Mdondolo', sub:'Owner / Admin · All districts'},
+};
+
+/* ---------------- state ---------------- */
+let state = {
+  role:'login', page:'home', menuOpen:false, signed:false, anon:false,
+  noticePeriod:2, sosModalOpen:false,
+  alerts:[
+    {unit:'Umhlanga Court, Unit 8', status:'unacknowledged', when:'4 min ago'},
+    {unit:'Redfern Heights, Unit 110', status:'resolved', when:'Yesterday'},
+  ],
+  payRows:[
+    {unit:'206', tenant:'N. Ngubane', paid:false},
+    {unit:'204', tenant:'T. Zulu', paid:true},
+    {unit:'110', tenant:'B. Khumalo', paid:true},
+  ],
+  tasks:[
+    {id:1, title:'Broken window latch', unit:'Redfern Heights, Unit 206', status:'outstanding', before:false, after:false},
+    {id:2, title:'Bathroom light flickering', unit:'Redfern Heights, Unit 206', status:'pending', before:false, after:false},
+    {id:3, title:'Leaking kitchen tap', unit:'Redfern Heights, Unit 206', status:'finished', before:true, after:true, invoice:null},
+    {id:4, title:'Geyser element replaced', unit:'Redfern Heights, Unit 206', status:'finished', before:true, after:true,
+      invoice:{to:'Owner (reimbursement)', rows:[{desc:'Geyser element',qty:1,price:450},{desc:'Callout & labour',qty:1,price:350}], note:'Element had corroded, replaced same-day.', account:'Sipho D. — Standard Bank ****4471', receipts:2, total:800, status:'submitted'}},
+  ],
+  openInvoiceTaskId:null,
+  invoice:{to:'', rows:[{desc:'',qty:1,price:0}], note:'', account:'', receipts:0},
+  notices:[
+    {title:'Water outage — Pinetown', date:'5 Sep', body:'Municipal maintenance will interrupt water supply 09:00–14:00 on 9 Sep.'},
+    {title:'Parking bay resealing', date:'1 Sep', body:'Visitor bays closed for resealing this weekend. Please use street parking.'},
+  ],
+  noticeDraft:{title:'', body:''},
+};
+
+/* ---------------- toast ---------------- */
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(window.__toastT);
+  window.__toastT = setTimeout(()=> t.classList.remove('show'), 3200);
+}
+
+/* ---------------- render root ---------------- */
+function render(){
+  const app = document.getElementById('app');
+  if(state.role==='login'){ app.innerHTML = pageLogin(); attachLogin(); return; }
+  app.innerHTML = shell();
+  attachShell();
+}
+
+function topbar(){
+  const nav = NAV[state.role];
+  const cur = nav.find(n=>n.id===state.page);
+  return `
+  <div class="topbar">
+    <div class="left">
+      <button class="iconbtn hamburger-toggle" id="btnMenu">${ic('menu')}</button>
+      <div class="pagetitle">${cur ? cur.label : 'ZMR'}</div>
+    </div>
+    <div class="right">
+      <button class="iconbtn" id="btnBell">${ic('bell')}</button>
+      <button class="sos-btn" id="btnSOS">${ic('siren')} SOS</button>
+    </div>
+  </div>`;
+}
+
+function sidebar(){
+  const who = WHO[state.role];
+  return `
+  <div class="sidebar">
+    <div class="brand">
+      <div class="mark">${ic('key')}</div>
+      <div class="txt"><div>ZMR</div><div>Property management</div></div>
+    </div>
+    <div class="who">
+      <div class="avatar">${who.name.charAt(0)}</div>
+      <div><div class="n" style="font-weight:700; font-size:13px;">${who.name}</div><div class="d" style="font-size:11px; color:#B9BDB6;">${who.sub}</div></div>
+    </div>
+    <nav>
+      ${NAV[state.role].map(n=>`<a data-nav="${n.id}" class="${state.page===n.id?'active':''}">${ic(n.icon)} ${n.label}</a>`).join('')}
+    </nav>
+    <div class="logout" data-nav="__logout">${ic('logout')} Log out</div>
+  </div>`;
+}
+
+function bottomNav(){
+  const items = BOTTOM[state.role];
+  return `<div class="bottomnav">${items.map(id=>{
+    if(id==='__menu') return `<div class="navitem" data-nav="__menu">${ic('menu')}<span>Menu</span></div>`;
+    const nav = NAV[state.role].find(n=>n.id===id);
+    const active = state.page===id ? 'active':'';
+    return `<div class="navitem ${active}" data-nav="${id}">${ic(nav.icon)}<span>${nav.label.split(' ')[0]}</span></div>`;
+  }).join('')}</div>`;
+}
+
+function menuOverlay(){
+  const who = WHO[state.role];
+  return `
+  <div class="menu-overlay ${state.menuOpen?'open':''}" id="menuOverlay">
+    <div class="menu-panel">
+      <div class="who">
+        <div class="avatar">${who.name.charAt(0)}</div>
+        <div><div class="n">${who.name}</div><div class="d">${who.sub}</div></div>
+      </div>
+      <div class="menu-list">
+        ${NAV[state.role].map(n=>`<a data-nav="${n.id}">${ic(n.icon)} ${n.label}</a>`).join('')}
+        <a class="logout" data-nav="__logout">${ic('logout')} Log out</a>
+      </div>
+    </div>
+  </div>`;
+}
+
+function sosModal(){
+  return `
+  <div class="modal-overlay ${state.sosModalOpen?'open':''}" id="sosModal">
+    <div class="modal-box">
+      <div class="ic">${ic('siren')}</div>
+      <h3>Send emergency alert?</h3>
+      <p>This notifies the owner immediately with your unit and location. Only use this for a genuine emergency.</p>
+      <div class="modal-actions">
+        <button class="btn secondary block" id="sosCancel">Cancel</button>
+        <button class="btn rust block" id="sosConfirm">Yes, send</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function shell(){
+  return `
+    ${sidebar()}
+    ${menuOverlay()}
+    ${sosModal()}
+    <div class="main">
+      ${topbar()}
+      <div class="content">${pageBody()}</div>
+      ${bottomNav()}
+    </div>
+  `;
+}
+
+function attachShell(){
+  document.getElementById('btnMenu').onclick = ()=>{ state.menuOpen=true; render(); };
+  document.getElementById('btnSOS').onclick = ()=>{ state.sosModalOpen=true; render(); };
+  const overlay = document.getElementById('menuOverlay');
+  overlay.onclick = (e)=>{ if(e.target===overlay){ state.menuOpen=false; render(); } };
+  const sosOv = document.getElementById('sosModal');
+  sosOv.onclick = (e)=>{ if(e.target===sosOv){ state.sosModalOpen=false; render(); } };
+  const sosCancel = document.getElementById('sosCancel');
+  if(sosCancel) sosCancel.onclick = ()=>{ state.sosModalOpen=false; render(); };
+  const sosConfirm = document.getElementById('sosConfirm');
+  if(sosConfirm) sosConfirm.onclick = ()=>{
+    state.sosModalOpen=false;
+    state.alerts.unshift({unit: WHO[state.role].sub.split(' · ')[0]+', '+(WHO[state.role].sub.split('·')[1]||'your unit'), status:'unacknowledged', when:'just now'});
+    render();
+    toast('Emergency alert sent to the owner.');
+  };
+  document.querySelectorAll('[data-nav]').forEach(el=>{
+    el.onclick = ()=>{
+      const id = el.dataset.nav;
+      if(id==='__logout'){ state.role='login'; state.menuOpen=false; render(); return; }
+      state.page = id; state.menuOpen = false; state.openInvoiceTaskId=null; render();
+    };
+  });
+  document.querySelectorAll('[data-sig]').forEach(el=>{ el.onclick = ()=>{ state.signed=true; render(); }; });
+  const anonToggle = document.getElementById('anonToggle');
+  if(anonToggle) anonToggle.onclick = ()=>{ state.anon = !state.anon; render(); };
+
+  /* tasks */
+  document.querySelectorAll('[data-accept]').forEach(el=> el.onclick = ()=>{
+    const t = state.tasks.find(x=>x.id==el.dataset.accept); t.status='pending'; render();
+  });
+  document.querySelectorAll('[data-photo]').forEach(el=> el.onclick = ()=>{
+    const [tid, which] = el.dataset.photo.split(':');
+    const t = state.tasks.find(x=>x.id==tid); t[which]=true; render();
+  });
+  document.querySelectorAll('[data-complete]').forEach(el=> el.onclick = ()=>{
+    const t = state.tasks.find(x=>x.id==el.dataset.complete); t.status='finished'; render();
+  });
+  document.querySelectorAll('[data-openinv]').forEach(el=> el.onclick = ()=>{
+    state.openInvoiceTaskId = Number(el.dataset.openinv);
+    state.invoice = {to:'', rows:[{desc:'',qty:1,price:0}], note:'', account:'', receipts:0};
+    render();
+  });
+  document.querySelectorAll('[data-closeinv]').forEach(el=> el.onclick = ()=>{ state.openInvoiceTaskId=null; render(); });
+  document.querySelectorAll('[data-addrow]').forEach(el=> el.onclick = ()=>{ state.invoice.rows.push({desc:'',qty:1,price:0}); render(); });
+  document.querySelectorAll('[data-rmrow]').forEach(el=> el.onclick = ()=>{
+    state.invoice.rows.splice(Number(el.dataset.rmrow),1); if(!state.invoice.rows.length) state.invoice.rows.push({desc:'',qty:1,price:0}); render();
+  });
+  document.querySelectorAll('[data-addreceipt]').forEach(el=> el.onclick = ()=>{ state.invoice.receipts++; render(); });
+  document.querySelectorAll('[data-submitinv]').forEach(el=> el.onclick = ()=>{
+    const t = state.tasks.find(x=>x.id===state.openInvoiceTaskId);
+    const rows = state.invoice.rows.filter(r=>r.desc);
+    const total = rows.reduce((s,r)=> s + (Number(r.qty)||0)*(Number(r.price)||0), 0);
+    t.invoice = {...state.invoice, rows, total, status:'submitted'};
+    state.openInvoiceTaskId = null;
+    render();
+    toast('Invoice submitted for review.');
+  });
+  document.querySelectorAll('input[data-field]').forEach(el=>{
+    el.oninput = ()=>{ state.invoice[el.dataset.field] = el.value; };
+  });
+  document.querySelectorAll('input[data-row]').forEach(el=>{
+    el.oninput = ()=>{
+      const [idx, field] = el.dataset.row.split(':');
+      state.invoice.rows[idx][field] = field==='desc' ? el.value : Number(el.value)||0;
+      recalcInvoiceTotals();
+    };
+  });
+  document.querySelectorAll('textarea[data-field]').forEach(el=>{
+    el.oninput = ()=>{ state.invoice[el.dataset.field] = el.value; };
+  });
+
+  /* payments */
+  document.querySelectorAll('[data-markpaid]').forEach(el=> el.onclick = ()=>{
+    const r = state.payRows[Number(el.dataset.markpaid)]; r.paid = !r.paid; render();
+  });
+
+  /* settings */
+  const noticeInput = document.getElementById('noticePeriodInput');
+  if(noticeInput){
+    document.getElementById('saveSettings').onclick = ()=>{
+      state.noticePeriod = Number(noticeInput.value)||2; render(); toast('Settings saved.');
+    };
+  }
+
+  /* notices composer */
+  const noticeTitle = document.getElementById('noticeTitle');
+  if(noticeTitle){
+    noticeTitle.oninput = ()=>{ state.noticeDraft.title = noticeTitle.value; };
+    document.getElementById('noticeBody').oninput = (e)=>{ state.noticeDraft.body = e.target.value; };
+    document.getElementById('postNotice').onclick = ()=>{
+      if(!state.noticeDraft.title) return;
+      state.notices.unshift({title:state.noticeDraft.title, date:'Just now', body:state.noticeDraft.body});
+      state.noticeDraft = {title:'', body:''};
+      render(); toast('Notice posted.');
+    };
+  }
+}
+
+function recalcInvoiceTotals(){
+  document.querySelectorAll('.inv-table tbody tr').forEach((tr,i)=>{
+    const r = state.invoice.rows[i]; if(!r) return;
+    const t = (Number(r.qty)||0)*(Number(r.price)||0);
+    const cell = tr.querySelector('.linetotal'); if(cell) cell.textContent = 'R '+t.toFixed(2);
+  });
+  const grand = state.invoice.rows.reduce((s,r)=> s + (Number(r.qty)||0)*(Number(r.price)||0), 0);
+  const gEl = document.getElementById('grandTotalVal');
+  if(gEl) gEl.textContent = 'R '+grand.toFixed(2);
+}
+
+/* ---------------- page bodies ---------------- */
+function pageBody(){
+  const fn = PAGES[state.role+':'+state.page] || PAGES[state.role+':home'];
+  return fn();
+}
+
+function invoiceForm(){
+  const inv = state.invoice;
+  const grand = inv.rows.reduce((s,r)=> s + (Number(r.qty)||0)*(Number(r.price)||0), 0);
+  return `
+  <div class="invoice-box">
+    <div class="row" style="margin-bottom:10px;"><b class="small">Quote / Invoice for this job</b><span class="small muted" style="cursor:pointer;" data-closeinv="1">Cancel</span></div>
+    <label class="field-label">To</label>
+    <input class="field" placeholder="Owner (reimbursement) or Tenant — Unit 206" data-field="to" value="${inv.to}">
+    <div class="table-wrap">
+    <table class="inv-table">
+      <thead><tr><th>Description</th><th>Qty</th><th>Price</th><th>Total</th><th></th></tr></thead>
+      <tbody>
+        ${inv.rows.map((r,i)=>`
+          <tr>
+            <td><input placeholder="e.g. Geyser element" value="${r.desc}" data-row="${i}:desc"></td>
+            <td><input class="qty" type="number" min="0" value="${r.qty}" data-row="${i}:qty"></td>
+            <td><input class="price" type="number" min="0" step="0.01" value="${r.price}" data-row="${i}:price"></td>
+            <td class="linetotal">R ${((Number(r.qty)||0)*(Number(r.price)||0)).toFixed(2)}</td>
+            <td><span class="rmv" data-rmrow="${i}">&times;</span></td>
+          </tr>`).join('')}
+      </tbody>
+    </table>
+    </div>
+    <button class="btn secondary sm" data-addrow="1">${ic('plus')} Add line</button>
+    <div class="grand-row"><span class="lbl">Grand total</span><span class="val" id="grandTotalVal">R ${grand.toFixed(2)}</span></div>
+    <label class="field-label" style="margin-top:6px;">Note</label>
+    <textarea class="field" rows="2" data-field="note" placeholder="Any context for the admin...">${inv.note}</textarea>
+    <label class="field-label">Account to pay into</label>
+    <input class="field" placeholder="Bank — account ending ****" data-field="account" value="${inv.account}">
+    <label class="field-label">Receipts</label>
+    <div class="receipt-row">
+      ${Array.from({length:inv.receipts}).map(()=>`<div class="receipt-thumb">Receipt</div>`).join('')}
+      <div class="add-receipt" data-addreceipt="1">${ic('upload')}</div>
+    </div>
+    <button class="btn brass block" data-submitinv="1">Submit invoice</button>
+  </div>`;
+}
+
+const PAGES = {
+
+  /* ===================== TENANT ===================== */
+  'tenant:home': ()=>`
+    <div class="pagehead"><h2>Good afternoon, Nompumelelo</h2><p>Redfern Heights · Unit 206 · Pinetown</p></div>
+    <div class="card">
+      <div class="row"><span class="small muted">Rent due 1 October</span><span class="badge outstanding">Not yet marked paid</span></div>
+      <div class="row" style="margin-top:6px;"><span class="amount">R 6,800</span></div>
+      <p class="small muted" style="margin:8px 0 0;">Pay via the bank details on the Rent & accounts page — the admin will mark it as received.</p>
+    </div>
+    <div class="card">
+      <b class="small">Recent activity</b><div class="hairline"></div>
+      <div class="row small" style="margin-bottom:8px;"><span>Maintenance — tap fixed</span><span class="badge finished">Finished</span></div>
+      <div class="row small" style="margin-bottom:8px;"><span>Lease renewal — 6/12 months</span><span class="badge new">Awaiting signature</span></div>
+      <div class="row small"><span>Notice period</span><span class="small muted">${state.noticePeriod} months required</span></div>
+    </div>
+  `,
+
+  'tenant:pay': ()=>`
+    <div class="pagehead"><h2>Rent & accounts</h2><p>Redfern Heights · Unit 206</p></div>
+    <div class="card">
+      <div class="row"><span class="small muted">This month</span><span class="badge outstanding">Not yet marked paid</span></div>
+      <div class="amount" style="margin:6px 0;">R 6,800.00</div>
+      <div class="small muted">Due 1 Oct</div>
+    </div>
+    <div class="card">
+      <b class="small">How to pay</b>
+      <p class="small muted" style="margin:6px 0;">Pay by EFT to the account below, using your unit number as reference. Rent isn't paid in-app — the admin confirms receipt and marks it paid on their side, usually within a day.</p>
+      <div class="small" style="font-family:'Newsreader',serif;">Standard Bank · Current · 10087738625<br>Reference: 206 Redfern flat</div>
+    </div>
+    <div class="card">
+      <b class="small">Water & extras</b><div class="hairline"></div>
+      <div class="row small"><span>Water overage — Sept</span><span>R150.00</span></div>
+    </div>
+    <b class="small" style="display:block; margin:14px 0 8px;">Payment history</b>
+    <div class="table-wrap"><table class="simple">
+      <tr><th>Date</th><th>Item</th><th>Amount</th><th></th></tr>
+      <tr><td>1 Sep</td><td>Rent</td><td>R6,800</td><td><span class="badge finished">Paid</span></td></tr>
+      <tr><td>1 Aug</td><td>Rent</td><td>R6,800</td><td><span class="badge finished">Paid</span></td></tr>
+      <tr><td>14 Jul</td><td>Water</td><td>R210</td><td><span class="badge finished">Paid</span></td></tr>
+    </table></div>
+  `,
+
+  'tenant:maint': ()=>`
+    <div class="pagehead"><h2>Maintenance</h2><p>Report an issue or track a request</p></div>
+    <button class="btn secondary block" style="margin-bottom:14px;">+ New maintenance request</button>
+    <div class="card">
+      <div class="row"><b class="small">Leaking kitchen tap</b><span class="badge finished">Finished</span></div>
+      <p class="small muted" style="margin:6px 0;">Reported 28 Aug · closed 30 Aug by Sipho</p>
+      <div class="taskimg-row"><div class="taskimg filled">Before photo</div><div class="taskimg filled">After photo</div></div>
+    </div>
+    <div class="card">
+      <div class="row"><b class="small">Bathroom light flickering</b><span class="badge pending">Pending</span></div>
+      <p class="small muted" style="margin:6px 0;">Reported 3 Sep · assigned to Sipho</p>
+    </div>
+    <div class="card">
+      <div class="row"><b class="small">Broken window latch</b><span class="badge outstanding">Outstanding</span></div>
+      <p class="small muted" style="margin:6px 0;">Reported 5 Sep · not yet assigned</p>
+    </div>
+  `,
+
+  'tenant:lease': ()=>`
+    <div class="pagehead"><h2>My lease</h2><p>Redfern Heights · Unit 206</p></div>
+    <div class="doc">
+      <h3>AGREEMENT OF LEASE</h3><div class="sub-h">(APARTMENT)</div>
+      <div class="parties">THE LESSOR<b>Zikhona Mdondolo</b><div style="margin:8px 0 4px;">AND</div>THE LESSEE<b>Nompumelelo Ngubane</b></div>
+      <hr>
+      <div class="clause"><span class="num">2. Duration —</span> commences 27 June 2025, subsists for 6 months, terminating 27 Dec 2025, subject to renewal (clause 13).</div>
+      <div class="clause"><span class="num">3. Rent —</span> R6,800.00 per month, increasing yearly at 10%.</div>
+      <div class="clause"><span class="num">6. Deposit —</span> R6,800.00 (amended from R3,500.00).</div>
+      <div class="clause"><span class="num">7. Cancellation —</span> ${state.noticePeriod} months' written notice required; penalty fee R2,000 (amended).</div>
+      <div class="clause"><span class="num">10. Sundry duties —</span> upkeep, no more than four occupants, no unauthorised subletting.</div>
+      <hr>
+      <div class="small" style="text-align:center; margin-bottom:6px;">Sign to accept the terms above</div>
+      ${state.signed
+        ? `<div class="sigpad signed">Nompumelelo Ngubane</div><div class="small" style="text-align:center; color:var(--forest);">Signed 7 Sep 2026, 10:14 · stored to audit log</div>`
+        : `<div class="sigpad" data-sig="1">Tap to sign</div>`}
+    </div>
+  `,
+
+  'tenant:complaint': ()=>`
+    <div class="pagehead"><h2>Complaints & reports</h2><p>Raised complaints go to the district admin</p></div>
+    <div class="card">
+      <label class="field-label">What's the issue?</label>
+      <select class="field"><option>Noise / disturbance</option><option>Neighbour dispute</option><option>Building upkeep</option><option>Staff conduct</option><option>Other</option></select>
+      <label class="field-label">Details</label>
+      <textarea class="field" rows="3" placeholder="Describe what happened..."></textarea>
+      <div class="toggle-row">
+        <div><div class="small" style="font-weight:600;">Submit anonymously</div><div class="small muted">Your name is hidden from admin and the other party</div></div>
+        <div class="switch ${state.anon?'on':''}" id="anonToggle"><div class="dot"></div></div>
+      </div>
+      <button class="btn brass block" style="margin-top:8px;">Submit ${state.anon?'anonymous ':''}complaint</button>
+    </div>
+    <b class="small" style="display:block; margin:14px 0 8px;">Your past reports</b>
+    <div class="card"><div class="row small"><span>Corridor light out for a week</span><span class="badge finished">Resolved</span></div></div>
+  `,
+
+  'tenant:notices': ()=>`
+    <div class="pagehead"><h2>Notices</h2><p>Updates from your building admin</p></div>
+    ${state.notices.map(n=>`
+      <div class="card notice-item">
+        <div class="row"><b class="small">${n.title}</b><span class="small muted">${n.date}</span></div>
+        <p class="small muted" style="margin:6px 0 0;">${n.body}</p>
+      </div>`).join('')}
+  `,
+
+  'tenant:info': ()=>`
+    <div class="pagehead"><h2>Property information</h2><p>Redfern Heights · Unit 206</p></div>
+    <div class="card"><b class="small">Building rules</b><p class="small muted">Max 4 occupants per unit · no pets without written consent · visible washing only in designated area · quiet hours 22:00–06:00.</p></div>
+    <div class="card"><b class="small">Utilities</b><p class="small muted">Water included (fair-use up to R200/mo). Electricity is prepaid — top up at any vendor with meter number on your welcome sheet.</p></div>
+    <div class="card"><b class="small">Leaving the property</b><p class="small muted">${state.noticePeriod} months' written notice is required before vacating.</p></div>
+    <div class="card"><b class="small">On-site contacts</b><p class="small muted">Admin office: Mon–Fri 8–5 · Emergencies: use the SOS button, 24/7.</p></div>
+  `,
+
+  'tenant:profile': ()=>`
+    <div class="pagehead"><h2>My profile</h2></div>
+    <div class="card">
+      <label class="field-label">Full name</label><input class="field" value="Nompumelelo Ngubane">
+      <label class="field-label">Cell</label><input class="field" value="083 981 5252">
+      <label class="field-label">Next of kin</label><input class="field" value="Hlengiwe (sister) — 067 966 8274">
+      <button class="btn secondary">Save changes</button>
+    </div>
+  `,
+
+  /* ===================== SERVICE PROVIDER ===================== */
+  'provider:home': ()=>`
+    <div class="pagehead"><h2>My tasks</h2><p>Pinetown district · assigned to you</p></div>
+    <div class="kpi-grid">
+      <div class="kpi"><div class="num">${state.tasks.filter(t=>t.status==='outstanding').length}</div><div class="lbl">Outstanding</div></div>
+      <div class="kpi"><div class="num">${state.tasks.filter(t=>t.status==='pending').length}</div><div class="lbl">Pending</div></div>
+      <div class="kpi"><div class="num">${state.tasks.filter(t=>t.status==='finished').length}</div><div class="lbl">Finished</div></div>
+    </div>
+    ${state.tasks.map(t=>{
+      let body = '';
+      if(t.status==='outstanding'){
+        body = `<button class="btn secondary sm" data-accept="${t.id}">Accept task</button>`;
+      } else if(t.status==='pending'){
+        body = `
+          <div class="taskimg-row">
+            <div class="taskimg ${t.before?'filled':''}" data-photo="${t.id}:before">${t.before?'Before ✓':'+ Before photo'}</div>
+            <div class="taskimg ${t.after?'filled':''}" data-photo="${t.id}:after">${t.after?'After ✓':'+ After photo'}</div>
+          </div>
+          ${t.before && t.after ? `<button class="btn brass sm" style="margin-top:10px;" data-complete="${t.id}">${ic('check')} Mark as complete</button>` : `<p class="small muted" style="margin-top:8px;">Add both photos to mark this complete.</p>`}
+        `;
+      } else if(t.status==='finished'){
+        if(t.invoice){
+          body = `
+            <div class="row small" style="margin-top:6px;"><span class="muted">Invoice</span><span class="badge new">Submitted · R ${t.invoice.total.toFixed(2)}</span></div>
+            <p class="small muted" style="margin:4px 0 0;">To: ${t.invoice.to} · ${t.invoice.receipts} receipt(s)</p>
+          `;
+        } else if(state.openInvoiceTaskId===t.id){
+          body = invoiceForm();
+        } else {
+          body = `<button class="btn secondary sm" data-openinv="${t.id}">${ic('invoice')} Add invoice</button>`;
+        }
+      }
+      return `<div class="card">
+        <div class="row"><b class="small">${t.title}</b><span class="badge ${t.status}">${t.status.charAt(0).toUpperCase()+t.status.slice(1)}</span></div>
+        <p class="small muted" style="margin:6px 0;">${t.unit}</p>
+        ${body}
+      </div>`;
+    }).join('')}
+  `,
+  'provider:notices': ()=>`
+    <div class="pagehead"><h2>Notices</h2><p>From admin</p></div>
+    ${state.notices.map(n=>`<div class="card notice-item"><div class="row"><b class="small">${n.title}</b><span class="small muted">${n.date}</span></div><p class="small muted" style="margin:6px 0 0;">${n.body}</p></div>`).join('')}
+  `,
+  'provider:info': ()=>`
+    <div class="pagehead"><h2>Site information</h2><p>Redfern Heights, Pinetown</p></div>
+    <div class="card"><b class="small">Access</b><p class="small muted">Gate code changes monthly — check Notices. Sign in at the office before entering any unit.</p></div>
+  `,
+  'provider:profile': ()=>`
+    <div class="pagehead"><h2>My profile</h2></div>
+    <div class="card"><label class="field-label">Name</label><input class="field" value="Sipho Dlamini"><label class="field-label">Service</label><input class="field" value="General maintenance"><button class="btn secondary">Save changes</button></div>
+  `,
+
+  /* ===================== ADMIN / OWNER ===================== */
+  'admin:home': ()=>`
+    <div class="pagehead"><h2>Overview</h2><p>All districts</p></div>
+    <div class="kpi-grid">
+      <div class="kpi"><div class="num">4</div><div class="lbl">Districts</div></div>
+      <div class="kpi"><div class="num">27</div><div class="lbl">Units occupied</div></div>
+      <div class="kpi"><div class="num">R42,600</div><div class="lbl">Rent outstanding</div></div>
+      <div class="kpi"><div class="num">${state.tasks.filter(t=>t.status!=='finished').length}</div><div class="lbl">Open tickets</div></div>
+    </div>
+    <div class="card">
+      <div class="row"><b class="small">Average property condition</b><span class="small" style="font-weight:700;">82%</span></div>
+      <div class="score-bar"><div style="width:82%;"></div></div>
+    </div>
+    ${state.alerts.filter(a=>a.status==='unacknowledged').slice(0,1).map(a=>`
+      <div class="card">
+        <div class="row"><b class="small" style="color:var(--rust);">${ic('siren')} Emergency alert — ${a.when}</b></div>
+        <p class="small muted" style="margin:6px 0;">${a.unit} — SOS pressed. Not yet acknowledged.</p>
+        <button class="btn rust sm">Acknowledge</button>
+      </div>`).join('')}
+  `,
+
+  'admin:districts': ()=>`
+    <div class="pagehead"><h2>Districts</h2><p>Add a new district when you take on a new property</p></div>
+    <button class="btn secondary" style="margin-bottom:14px;">${ic('plus')} Add new district</button>
+    <div class="card"><div class="row"><b class="small">Pinetown</b><span class="small muted">1 property · 12 units</span></div></div>
+    <div class="card"><div class="row"><b class="small">Umhlanga</b><span class="small muted">1 property · 8 units</span></div></div>
+    <div class="card"><div class="row"><b class="small">Durban Central</b><span class="small muted">2 properties · 15 units</span></div></div>
+    <div class="card"><div class="row"><b class="small">Sandton</b><span class="small muted">1 property · 6 units</span></div></div>
+  `,
+
+  'admin:properties': ()=>`
+    <div class="pagehead"><h2>Properties</h2><p>Condition score = admin's evaluation, updated after each inspection</p></div>
+    <div class="card">
+      <div class="prop-row"><div class="prop-thumb"></div><div style="flex:1;"><div class="row"><b class="small">Redfern Heights</b><span class="small">88%</span></div><div class="small muted">Pinetown · 12 units</div><div class="score-bar"><div style="width:88%;"></div></div></div></div>
+      <div class="prop-row"><div class="prop-thumb"></div><div style="flex:1;"><div class="row"><b class="small">Umhlanga Court</b><span class="small">71%</span></div><div class="small muted">Umhlanga · 8 units</div><div class="score-bar"><div style="width:71%;"></div></div></div></div>
+      <div class="prop-row"><div class="prop-thumb"></div><div style="flex:1;"><div class="row"><b class="small">Bay View Flats</b><span class="small">93%</span></div><div class="small muted">Durban Central · 9 units</div><div class="score-bar"><div style="width:93%;"></div></div></div></div>
+    </div>
+    <button class="btn secondary">+ Add property to a district</button>
+  `,
+
+  'admin:tenants': ()=>`
+    <div class="pagehead"><h2>Tenants & leases</h2><p>Redfern Heights</p></div>
+    <div class="table-wrap"><table class="simple">
+      <tr><th>Unit</th><th>Tenant</th><th>Lease</th><th>Rent</th></tr>
+      <tr><td>206</td><td>N. Ngubane</td><td><span class="badge new">Awaiting sig.</span></td><td>R6,800</td></tr>
+      <tr><td>204</td><td>T. Zulu</td><td><span class="badge finished">Signed</span></td><td>R6,200</td></tr>
+      <tr><td>110</td><td>B. Khumalo</td><td><span class="badge finished">Signed</span></td><td>R6,200</td></tr>
+    </table></div>
+    <button class="btn secondary" style="margin-top:12px;">${ic('doc')} Send new lease for signature</button>
+  `,
+
+  'admin:maint': ()=>`
+    <div class="pagehead"><h2>Maintenance</h2><p>Across all districts</p></div>
+    ${state.tasks.map(t=>`
+      <div class="card">
+        <div class="row"><b class="small">${t.title}</b><span class="badge ${t.status}">${t.status.charAt(0).toUpperCase()+t.status.slice(1)}</span></div>
+        <p class="small muted" style="margin:6px 0;">${t.unit}</p>
+        ${t.status==='outstanding' ? `<button class="btn secondary sm">Assign to service provider</button>` : ''}
+        ${t.status==='finished' && t.before && t.after ? `<div class="taskimg-row"><div class="taskimg filled">Before</div><div class="taskimg filled">After</div></div>` : ''}
+        ${t.invoice ? `<p class="small muted" style="margin-top:8px;">Invoice submitted — R ${t.invoice.total.toFixed(2)} · <a data-nav="invoices" style="color:var(--brass-dark); font-weight:600; cursor:pointer;">view in Invoices</a></p>` : ''}
+      </div>`).join('')}
+  `,
+
+  'admin:invoices': ()=>{
+    const withInv = state.tasks.filter(t=>t.invoice);
+    return `
+    <div class="pagehead"><h2>Invoices</h2><p>Quotes & invoices submitted by service providers</p></div>
+    ${withInv.length===0 ? `<p class="small muted">No invoices submitted yet.</p>` : withInv.map(t=>`
+      <div class="card">
+        <div class="row"><b class="small">${t.title}</b><span class="badge new">${t.invoice.status.charAt(0).toUpperCase()+t.invoice.status.slice(1)}</span></div>
+        <p class="small muted" style="margin:6px 0;">${t.unit} · To: ${t.invoice.to}</p>
+        <div class="table-wrap"><table class="simple">
+          <tr><th>Description</th><th>Qty</th><th>Price</th><th>Total</th></tr>
+          ${t.invoice.rows.map(r=>`<tr><td>${r.desc}</td><td>${r.qty}</td><td>R${Number(r.price).toFixed(2)}</td><td>R${(r.qty*r.price).toFixed(2)}</td></tr>`).join('')}
+        </table></div>
+        <div class="row" style="margin-top:8px;"><span class="small muted">Account</span><span class="small">${t.invoice.account}</span></div>
+        <div class="row"><span class="small muted">Receipts</span><span class="small">${t.invoice.receipts} attached</span></div>
+        ${t.invoice.note ? `<p class="small muted" style="margin:8px 0 0;">"${t.invoice.note}"</p>` : ''}
+        <div class="grand-row"><span class="lbl">Total</span><span class="val">R ${t.invoice.total.toFixed(2)}</span></div>
+        <div class="row" style="gap:8px;"><button class="btn secondary sm">Approve</button><button class="btn brass sm">Mark as paid</button></div>
+      </div>`).join('')}
+  `;},
+
+  'admin:complaint': ()=>`
+    <div class="pagehead"><h2>Complaints</h2><p>Includes anonymous reports — identity is hidden even from admin</p></div>
+    <div class="card"><div class="row"><b class="small">Noise complaint — Unit 204</b><span class="badge outstanding">Open</span></div><p class="small muted" style="margin:6px 0;">Submitted anonymously · 2 days ago</p></div>
+    <div class="card"><div class="row"><b class="small">Corridor light out</b><span class="badge finished">Resolved</span></div><p class="small muted" style="margin:6px 0;">N. Ngubane, Unit 206</p></div>
+  `,
+
+  'admin:payments': ()=>`
+    <div class="pagehead"><h2>Payments & accounts</h2><p>Rent is paid by EFT — mark each tenant as paid once you've confirmed receipt</p></div>
+    <div class="kpi-grid">
+      <div class="kpi"><div class="num">${state.payRows.filter(r=>r.paid).length}/${state.payRows.length}</div><div class="lbl">Marked paid, Sept</div></div>
+      <div class="kpi"><div class="num">R${(state.payRows.filter(r=>!r.paid).length*6800).toLocaleString()}</div><div class="lbl">Outstanding</div></div>
+    </div>
+    <div class="table-wrap"><table class="simple">
+      <tr><th>Unit</th><th>Tenant</th><th>Status</th><th></th></tr>
+      ${state.payRows.map((r,i)=>`
+        <tr><td>${r.unit}</td><td>${r.tenant}</td>
+        <td>${r.paid ? '<span class="badge finished">Paid</span>' : '<span class="badge outstanding">Outstanding</span>'}</td>
+        <td><button class="btn ${r.paid?'secondary':'brass'} sm" data-markpaid="${i}">${r.paid ? 'Undo' : 'Mark paid'}</button></td></tr>
+      `).join('')}
+    </table></div>
+  `,
+
+  'admin:notices': ()=>`
+    <div class="pagehead"><h2>Notices</h2><p>Post an update — visible to tenants and service providers</p></div>
+    <div class="card">
+      <label class="field-label">Title</label><input class="field" id="noticeTitle" placeholder="e.g. Water outage" value="${state.noticeDraft.title}">
+      <label class="field-label">Message</label><textarea class="field" rows="3" id="noticeBody" placeholder="Details...">${state.noticeDraft.body}</textarea>
+      <button class="btn brass block" id="postNotice">Post notice</button>
+    </div>
+    <b class="small" style="display:block; margin:14px 0 8px;">Sent notices</b>
+    ${state.notices.map(n=>`<div class="card notice-item"><div class="row"><b class="small">${n.title}</b><span class="small muted">${n.date}</span></div><p class="small muted" style="margin:6px 0 0;">${n.body}</p></div>`).join('')}
+  `,
+
+  'admin:codes': ()=>`
+    <div class="pagehead"><h2>Codes & roles</h2><p>Generated per district — share the relevant code with each group</p></div>
+    <div class="card"><div class="row"><b class="small">Pinetown — Tenant code</b><span class="small" style="font-family:'Newsreader',serif;">PTN-TEN-2201</span></div></div>
+    <div class="card"><div class="row"><b class="small">Pinetown — Service provider code</b><span class="small" style="font-family:'Newsreader',serif;">PTN-SVC-8830</span></div></div>
+    <div class="card"><div class="row"><b class="small">Owner / Admin — master code</b><span class="small" style="font-family:'Newsreader',serif;">OWN-ADM-0001</span></div></div>
+    <button class="btn secondary">${ic('plus')} Generate property-manager code for a district</button>
+  `,
+
+  'admin:settings': ()=>`
+    <div class="pagehead"><h2>Settings</h2><p>Rules that apply across the portfolio</p></div>
+    <div class="card">
+      <label class="field-label">Tenant notice period before vacating (months)</label>
+      <input class="field" type="number" min="1" max="12" id="noticePeriodInput" value="${state.noticePeriod}">
+      <button class="btn secondary" id="saveSettings">Save</button>
+    </div>
+  `,
+
+  'admin:audit': ()=>`
+    <div class="pagehead"><h2>Audit log</h2><p>Every sensitive action, timestamped</p></div>
+    <div class="table-wrap"><table class="simple">
+      <tr><th>When</th><th>Who</th><th>Action</th></tr>
+      <tr><td>Today 10:14</td><td>N. Ngubane</td><td>Signed lease renewal, Unit 206</td></tr>
+      <tr><td>Today 09:15</td><td>Admin</td><td>Assigned task to Sipho D.</td></tr>
+      <tr><td>Yest. 18:40</td><td>Unit 8 tenant</td><td>Emergency alert triggered</td></tr>
+      <tr><td>Yest. 11:02</td><td>Admin</td><td>Rent increase applied, Pinetown, 10%</td></tr>
+      <tr><td>3 Sep</td><td>Anonymous</td><td>Complaint filed, Unit 204</td></tr>
+      <tr><td>1 Sep</td><td>Admin</td><td>Marked rent paid, Unit 204</td></tr>
+    </table></div>
+  `,
+
+  'admin:sos': ()=>`
+    <div class="pagehead"><h2>Emergency alerts</h2><p>Every SOS press is confirmed by the sender before it reaches you</p></div>
+    ${state.alerts.map(a=>`
+      <div class="card">
+        <div class="row"><b class="small" style="color:${a.status==='unacknowledged'?'var(--rust)':'inherit'};">${a.unit}</b><span class="badge ${a.status==='unacknowledged'?'outstanding':'finished'}">${a.status==='unacknowledged'?'Unacknowledged':'Resolved'}</span></div>
+        <p class="small muted" style="margin:6px 0;">${a.when}</p>
+        ${a.status==='unacknowledged' ? `<button class="btn rust sm">Acknowledge & call</button>` : ''}
+      </div>`).join('')}
+  `,
+
+  'admin:profile': ()=>`
+    <div class="pagehead"><h2>My profile</h2></div>
+    <div class="card"><label class="field-label">Name</label><input class="field" value="Zikhona Mdondolo"><label class="field-label">Role</label><input class="field" value="Owner / Admin"><button class="btn secondary">Save changes</button></div>
+  `,
+};
+
+/* ---------------- login ---------------- */
+function pageLogin(){
+  return `
+  <div class="login-screen">
+    <div class="login-card">
+      <div class="mark">${ic('key')}</div>
+      <h1>Welcome to ZMR</h1>
+      <p class="sub">Enter the code you were given. It knows your district and your role — you'll land exactly where you need to be.</p>
+      <input class="code-input" placeholder="e.g. PTN-TEN-2201" id="codeField">
+      <button class="btn brass block" id="loginBtn">Continue</button>
+      <div class="chip-row">
+        <div class="chip" data-code="PTN-TEN-2201">Try tenant code</div>
+        <div class="chip" data-code="PTN-SVC-8830">Try service provider code</div>
+        <div class="chip" data-code="OWN-ADM-0001">Try owner/admin code</div>
+      </div>
+      <div class="login-foot">No app store install needed — ZMR runs as a web app you can add to your home screen.</div>
+    </div>
+  </div>`;
+}
+function attachLogin(){
+  document.querySelectorAll('.chip').forEach(c=> c.onclick = ()=>{ document.getElementById('codeField').value = c.dataset.code; });
+  document.getElementById('loginBtn').onclick = ()=>{
+    const v = (document.getElementById('codeField').value||'').toUpperCase();
+    if(v.includes('SVC')) state.role='provider';
+    else if(v.includes('ADM')) state.role='admin';
+    else state.role='tenant';
+    state.page='home'; render();
+  };
+}
+
+render();
+</script>
+</body>
+</html>

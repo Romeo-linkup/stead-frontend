@@ -1,0 +1,16 @@
+/* src/styles/tokens.css — design tokens lifted from stead-mockup.html.
+   Keep this in sync if the mockup's palette ever changes. */
+:root {
+  --ink: #1C2321;
+  --paper: #F6F4EE;
+  --paper2: #EDE8DC;
+  --brass: #A8823A;
+  --brass-dark: #8A6A2C;
+  --slate: #5B6570;
+  --line: #DAD3C2;
+  --forest: #3F6B4E;
+  --rust: #A14E3B;
+  --white: #FFFFFF;
+  --radius: 6px;
+  --sidebar-w: 238px;
+}

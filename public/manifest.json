@@ -1,0 +1,13 @@
+{
+  "name": "Stead",
+  "short_name": "Stead",
+  "description": "Property management for owners, managers, providers and tenants.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F6F4EE",
+  "theme_color": "#1C2321",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
