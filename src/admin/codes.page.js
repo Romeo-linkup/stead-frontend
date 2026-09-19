@@ -4,7 +4,7 @@ import { apiFetch } from '../shared/api.js';
 import { getCurrentUser } from '../auth/session.js';
 
 const ROLE_OPTIONS = [
-  { value: 'admin', label: 'Admin' },
+  { value: 'owner', label: 'Owner / Admin' },
   { value: 'property_manager', label: 'Property Manager' },
   { value: 'service_provider', label: 'Service Provider' },
   { value: 'tenant', label: 'Tenant' },
