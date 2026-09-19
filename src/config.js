@@ -5,4 +5,4 @@ const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
 
 export const API_URL = isLocal
   ? 'http://localhost:4000'
-  : 'https://REPLACE-WITH-YOUR-RENDER-URL.onrender.com';
+  : 'https://stead-backend-l92s.onrender.com';
