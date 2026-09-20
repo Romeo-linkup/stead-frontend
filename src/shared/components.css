@@ -115,6 +115,9 @@ table.list td { padding: 10px; border-bottom: 1px solid var(--line); }
 .badge-active { background: rgba(63,107,78,0.12); color: var(--forest); }
 .badge-inactive { background: rgba(161,78,59,0.12); color: var(--rust); }
 .badge.new { background: #E7E9F5; color: #41457A; }
+.badge.outstanding { background: #F6E4E0; color: var(--rust); }
+.badge.pending { background: #F3EBD8; color: var(--brass-dark); }
+.badge.finished { background: #E1EBE3; color: var(--forest); }
 
 .kpi-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 14px; }
 @media (min-width: 900px) { .kpi-grid { grid-template-columns: repeat(4, 1fr); } }
@@ -126,6 +129,7 @@ table.list td { padding: 10px; border-bottom: 1px solid var(--line); }
 table.simple { width: 100%; border-collapse: collapse; font-size: 12px; }
 table.simple th { text-align: left; color: var(--slate); font-weight: 600; padding: 7px 5px; border-bottom: 1px solid var(--line); white-space: nowrap; }
 table.simple td { padding: 9px 5px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.table-wrap { overflow-x: auto; }
 
 /* ===== lease document ===== */
 .lease-pagehead { margin: 2px 0 16px; }

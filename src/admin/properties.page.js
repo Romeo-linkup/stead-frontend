@@ -6,14 +6,17 @@ export async function renderProperties(root) {
 	content.innerHTML = `
 		<div class="pagehead"><h2>Properties</h2><p>Review property condition and record the latest evaluation.</p></div>
 		<div id="properties-list">Loading...</div>
+		<div id="properties-average"></div>
 	`;
 
 	async function loadProperties() {
 		const list = content.querySelector('#properties-list');
+		const averageBox = content.querySelector('#properties-average');
 		try {
 			const properties = await apiFetch('/properties');
 			if (!properties.length) {
 				list.innerHTML = '<div class="card"><p style="color:var(--slate);margin:0;">No properties yet.</p></div>';
+				averageBox.innerHTML = '';
 				return;
 			}
 
@@ -46,8 +49,31 @@ export async function renderProperties(root) {
 					</article>
 				`;
 			}).join('');
+
+			const evaluated = properties
+				.map(p => (p.current_score === null || p.current_score === undefined ? null : Number(p.current_score)))
+				.filter(score => score !== null);
+
+			if (evaluated.length) {
+				const average = evaluated.reduce((sum, s) => sum + s, 0) / evaluated.length;
+				const allEvaluated = evaluated.length === properties.length;
+				averageBox.innerHTML = `
+					<div class="card" style="margin-top:4px;">
+						<div style="display:flex;justify-content:space-between;align-items:baseline;">
+							<b class="small">${allEvaluated ? 'Overall average' : `Average (${evaluated.length} of ${properties.length} evaluated)`}</b>
+							<strong style="font-size:20px;color:var(--brass-dark);">${average.toFixed(1)}%</strong>
+						</div>
+						<div style="height:9px;background:var(--paper2);border-radius:999px;overflow:hidden;margin-top:10px;">
+							<div style="height:100%;width:${Math.max(0, Math.min(100, average))}%;background:var(--forest);"></div>
+						</div>
+					</div>
+				`;
+			} else {
+				averageBox.innerHTML = '';
+			}
 		} catch (err) {
 			list.innerHTML = `<div class="card"><p class="error-text">${escapeHtml(err.message)}</p></div>`;
+			averageBox.innerHTML = '';
 		}
 	}
 

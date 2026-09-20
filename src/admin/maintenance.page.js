@@ -51,12 +51,14 @@ function renderMaintenanceCards(maintenance, providers) {
 			let actionHtml = '';
 			if (task.status === 'outstanding') {
 				actionHtml = `
-					<select class="field assign-select" data-task-id="${task.id}" style="margin-top:8px;">
-						<option value="">Assign to service provider...</option>
-						${providers
-							.map((p) => `<option value="${p.id}">${escapeHtml(p.name)}${p.service_specialty ? ` — ${escapeHtml(p.service_specialty)}` : ''}</option>`)
-							.join('')}
-					</select>
+					<div class="field" style="margin-top:8px;">
+						<select class="assign-select" data-task-id="${task.id}">
+							<option value="">Assign to service provider...</option>
+							${providers
+								.map((p) => `<option value="${p.id}">${escapeHtml(p.name)}${p.service_specialty ? ` — ${escapeHtml(p.service_specialty)}` : ''}</option>`)
+								.join('')}
+						</select>
+					</div>
 				`;
 			}
 
