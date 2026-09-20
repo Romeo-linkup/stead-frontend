@@ -19,6 +19,7 @@ export async function renderDistricts(root) {
     </div>
     <div class="card">
       <h3 class="serif" style="margin-top:0;">All districts</h3>
+      <div id="districts-error" class="error-text" style="display:none;"></div>
       <div id="districts-list">Loading...</div>
     </div>
   `;
@@ -33,16 +34,39 @@ export async function renderDistricts(root) {
       }
       listEl.innerHTML = `
         <table class="list">
-          <thead><tr><th>Name</th><th>Added</th></tr></thead>
+          <thead><tr><th>Name</th><th>Added</th><th></th></tr></thead>
           <tbody>
             ${districts
               .map(
-                (d) => `<tr><td>${escapeHtml(d.name)}</td><td>${new Date(d.created_at).toLocaleDateString()}</td></tr>`
+                (d) => `<tr><td>${escapeHtml(d.name)}</td><td>${new Date(d.created_at).toLocaleDateString()}</td><td><button class="btn btn-danger btn-sm delete-district-btn" data-id="${d.id}" data-name="${escapeAttr(d.name)}">Delete</button></td></tr>`
               )
               .join('')}
           </tbody>
         </table>
       `;
+
+      listEl.querySelectorAll('.delete-district-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const districtName = btn.dataset.name;
+          if (!confirm(`Delete ${districtName}? This can't be undone.`)) return;
+
+          const errorBox = content.querySelector('#districts-error');
+          errorBox.style.display = 'none';
+
+          btn.disabled = true;
+          btn.textContent = 'Deleting...';
+
+          try {
+            await apiFetch(`/districts/${btn.dataset.id}`, { method: 'DELETE' });
+            await loadDistricts();
+          } catch (err) {
+            btn.disabled = false;
+            btn.textContent = 'Delete';
+            errorBox.textContent = err.message;
+            errorBox.style.display = 'block';
+          }
+        });
+      });
     } catch (err) {
       listEl.innerHTML = `<p class="error-text">${escapeHtml(err.message)}</p>`;
     }
@@ -70,4 +94,8 @@ function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str;
   return div.innerHTML;
+}
+
+function escapeAttr(str) {
+  return String(str || '').replace(/"/g, '&quot;');
 }
