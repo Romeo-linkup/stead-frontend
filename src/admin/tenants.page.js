@@ -72,7 +72,7 @@ function renderTenantsTable(units, leases, tenants) {
 			if (lease) {
 				if (lease.status === 'draft') {
 					leaseStatus = '<span class="badge new">Draft</span>';
-					action = `<button class="btn brass sm send-lease-btn" data-lease-id="${lease.id}">Send for signature</button>`;
+					action = `<button class="btn brass btn-sm send-lease-btn" data-lease-id="${lease.id}">Send for signature</button>`;
 				} else if (lease.status === 'sent') {
 					leaseStatus = '<span class="badge pending">Awaiting sig.</span>';
 				} else if (lease.status === 'signed') {
@@ -83,7 +83,7 @@ function renderTenantsTable(units, leases, tenants) {
 			} else {
 				leaseStatus = '<span class="small muted">No lease</span>';
 				action = unit.tenant_user_id
-					? `<a class="btn secondary sm" href="#/admin/leases">${icon('doc')} Create lease</a>`
+					? `<a class="btn btn-primary btn-sm" href="#/admin/leases">${icon('doc')} Create lease</a>`
 					: '';
 			}
 

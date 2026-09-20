@@ -47,8 +47,10 @@ export async function renderTasks(root) {
           ` : ''}
           ${task.status === 'pending' ? `
             <form class="complete-task" data-id="${task.id}" style="margin-top:12px;">
-              <label class="field-label" for="after-photo-${task.id}">After photo (optional)</label>
-              <input id="after-photo-${task.id}" name="after" type="file" accept="image/jpeg,image/png,image/webp">
+              <div class="field">
+                <label for="after-photo-${task.id}">After photo (optional)</label>
+                <input id="after-photo-${task.id}" name="after" type="file" accept="image/jpeg,image/png,image/webp">
+              </div>
               <button class="btn btn-primary" type="submit" style="margin-top:10px;">Mark complete</button>
               <div class="error-text task-error" hidden></div>
             </form>

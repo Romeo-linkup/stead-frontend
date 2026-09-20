@@ -13,11 +13,15 @@ export function renderProfile(root) {
 			<h2>My profile</h2>
 		</div>
 		<div class="card">
-			<label class="field-label">Name</label>
-			<input class="field" id="profile-name" placeholder="Your name">
-			<label class="field-label">Role</label>
-			<input class="field" id="profile-role" placeholder="Your role" disabled>
-			<button class="btn secondary" id="save-profile">Save changes</button>
+			<div class="field">
+				<label>Name</label>
+				<input id="profile-name" placeholder="Your name">
+			</div>
+			<div class="field">
+				<label>Role</label>
+				<input id="profile-role" placeholder="Your role" disabled>
+			</div>
+			<button class="btn btn-primary" id="save-profile">Save changes</button>
 			<div class="error-text" id="profile-error" hidden></div>
 		</div>
 		${
@@ -29,9 +33,11 @@ export function renderProfile(root) {
 				Shown at the top of the app to everyone — tenants, providers, and any
 				property managers you add.
 			</p>
-			<label class="field-label">Business name</label>
-			<input class="field" id="business-name" placeholder="e.g. Redfern Properties">
-			<button class="btn secondary" id="save-business-name">Save name</button>
+			<div class="field">
+				<label>Business name</label>
+				<input id="business-name" placeholder="e.g. Redfern Properties">
+			</div>
+			<button class="btn btn-primary" id="save-business-name">Save name</button>
 			<div class="error-text" id="business-name-error" hidden></div>
 		</div>`
 				: ''

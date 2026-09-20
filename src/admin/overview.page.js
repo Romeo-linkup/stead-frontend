@@ -98,7 +98,7 @@ function renderEmergencyAlerts(alerts) {
 				<b class="small" style="color:var(--rust);">Emergency alert — ${formatTimeAgo(alert.created_at)}</b>
 			</div>
 			<p class="small muted" style="margin:6px 0;">Unit ${escapeHtml(alert.unit_number || 'Unknown')} — SOS pressed. Not yet acknowledged.</p>
-			<button class="btn rust sm ack-btn" data-id="${alert.id}">Acknowledge</button>
+			<button class="btn rust btn-sm ack-btn" data-id="${alert.id}">Acknowledge</button>
 		</div>
 	`
 		)

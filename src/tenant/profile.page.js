@@ -9,13 +9,19 @@ export function renderProfile(root) {
 			<h2>My profile</h2>
 		</div>
 		<div class="card">
-			<label class="field-label">Full name</label>
-			<input class="field" id="profile-name" placeholder="Your name">
-			<label class="field-label">Cellphone</label>
-			<input class="field" id="profile-phone" placeholder="e.g. 082 123 4567">
-			<label class="field-label">Next of kin</label>
-			<input class="field" id="profile-kin" placeholder="Name and contact number">
-			<button class="btn secondary" id="save-profile">Save changes</button>
+			<div class="field">
+				<label>Full name</label>
+				<input id="profile-name" placeholder="Your name">
+			</div>
+			<div class="field">
+				<label>Cellphone</label>
+				<input id="profile-phone" placeholder="e.g. 082 123 4567">
+			</div>
+			<div class="field">
+				<label>Next of kin</label>
+				<input id="profile-kin" placeholder="Name and contact number">
+			</div>
+			<button class="btn btn-primary" id="save-profile">Save changes</button>
 			<div class="error-text" id="profile-error" hidden></div>
 		</div>
 	`;

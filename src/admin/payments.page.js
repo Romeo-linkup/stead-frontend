@@ -67,7 +67,7 @@ function renderPaymentsTable(payments, units) {
 			// the backend, so once paid, this becomes a plain status, not a button.
 			const actionCell = isPaid
 				? '<span class="small muted">Paid</span>'
-				: `<button class="btn brass sm mark-paid-btn" data-id="${payment.id}">Mark paid</button>`;
+				: `<button class="btn brass btn-sm mark-paid-btn" data-id="${payment.id}">Mark paid</button>`;
 
 			return `
 				<tr>

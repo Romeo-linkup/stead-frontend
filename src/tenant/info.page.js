@@ -1,8 +1,5 @@
 import { renderShell } from '../shared/shell.js';
 
-// Static for v1 — there's no property_info table in the schema, so nothing
-// here is admin-editable yet. If the client wants this editable per
-// district/property later, that's a new table + admin screen.
 export function renderInfo(root) {
 	const content = renderShell(root, { activeHref: '#/tenant/info', title: 'Information' });
 

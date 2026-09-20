@@ -102,6 +102,9 @@ a { color: inherit; }
 .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 .btn-outline { background: transparent; color: var(--ink); border: 1px solid var(--line); }
 .btn-danger { background: transparent; color: var(--rust); border: 1px solid var(--rust); }
+.btn.brass { background: var(--brass); border-color: var(--brass); color: #fff; }
+.btn.rust { background: var(--rust); border-color: var(--rust); color: #fff; }
+.btn-sm { padding: 6px 11px; font-size: 12px; }
 
 /* ===== cards / tables ===== */
 .card { background: var(--white); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; margin-bottom: 14px; }
@@ -111,6 +114,18 @@ table.list td { padding: 10px; border-bottom: 1px solid var(--line); }
 .badge { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; }
 .badge-active { background: rgba(63,107,78,0.12); color: var(--forest); }
 .badge-inactive { background: rgba(161,78,59,0.12); color: var(--rust); }
+.badge.new { background: #E7E9F5; color: #41457A; }
+
+.kpi-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 14px; }
+@media (min-width: 900px) { .kpi-grid { grid-template-columns: repeat(4, 1fr); } }
+.kpi { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 13px; }
+.kpi .num { font-family: 'Newsreader', serif; font-size: 22px; font-weight: 600; }
+.kpi .lbl { font-size: 11px; color: var(--slate); }
+.score-bar { width: 100%; height: 5px; background: var(--paper2); border-radius: 3px; margin-top: 4px; overflow: hidden; }
+.score-bar > div { height: 100%; background: var(--brass); }
+table.simple { width: 100%; border-collapse: collapse; font-size: 12px; }
+table.simple th { text-align: left; color: var(--slate); font-weight: 600; padding: 7px 5px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+table.simple td { padding: 9px 5px; border-bottom: 1px solid var(--line); vertical-align: middle; }
 
 /* ===== lease document ===== */
 .lease-pagehead { margin: 2px 0 16px; }
@@ -146,3 +161,10 @@ table.list td { padding: 10px; border-bottom: 1px solid var(--line); }
 	font-size: 17px;
 	font-weight: 600;
 }
+
+/* ===== generic page heading + text utilities ===== */
+.pagehead { margin: 2px 0 16px; }
+.pagehead h2 { margin: 0 0 3px; font-size: 22px; font-weight: 600; }
+.pagehead p { margin: 0; color: var(--slate); font-size: 13px; }
+.muted { color: var(--slate); }
+.small { font-size: 12.5px; }
