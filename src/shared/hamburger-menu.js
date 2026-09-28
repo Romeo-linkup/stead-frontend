@@ -1,5 +1,36 @@
 import { logout, getCurrentUser } from '../auth/session.js';
 import { icon } from './icons.js';
+import { apiFetch } from './api.js';
+
+// Cached across page navigations within a session, so every renderShell()
+// call doesn't refetch the business name on every hash change.
+let cachedBusinessName = null;
+let fetchPromise = null;
+
+function getBusinessName() {
+	if (cachedBusinessName) return Promise.resolve(cachedBusinessName);
+	if (!fetchPromise) {
+		fetchPromise = apiFetch('/settings')
+			.then((s) => {
+				cachedBusinessName = s.business_name || 'Stead';
+				return cachedBusinessName;
+			})
+			.catch(() => {
+				// Don't cache the fallback — drop the in-flight promise so the
+				// next renderShell() retries (e.g. right after signing in).
+				fetchPromise = null;
+				return 'Stead';
+			});
+	}
+	return fetchPromise;
+}
+
+// Call this after the owner updates the name so the brand block reflects it
+// immediately, without needing a full page reload.
+export function invalidateBusinessNameCache() {
+	cachedBusinessName = null;
+	fetchPromise = null;
+}
 
 const NAV = {
 	tenant: [
@@ -8,13 +39,13 @@ const NAV = {
 		['#/tenant/maintenance', 'Maintenance', 'wrench'],
 		['#/tenant/lease', 'My lease', 'document'],
 		['#/tenant/complaints', 'Complaints', 'message'],
-		['#/tenant/messages', 'Messages', 'message'],
+		['#/tenant/messages', 'Notices', 'bullhorn'],
 		['#/tenant/info', 'Property info', 'info'],
 		['#/tenant/profile', 'My profile', 'profile'],
 	],
 	service_provider: [
 		['#/provider/tasks', 'My tasks', 'wrench'],
-		['#/provider/messages', 'Messages', 'message'],
+		['#/provider/messages', 'Notices', 'bullhorn'],
 		['#/provider/info', 'Site info', 'info'],
 		['#/provider/profile', 'My profile', 'profile'],
 	],
@@ -33,20 +64,20 @@ const NAV = {
 	],
 };
 
-const BOTTOM_SHORT = {
-	'Rent & accounts': 'Pay',
-	'My tasks': 'Tasks',
-	'Tenants & leases': 'Tenants',
-	'Emergency alerts': 'SOS',
-};
-
 export function getRoleNavigation(role) {
 	return NAV[role] || NAV.admin;
 }
 
+// The bottom nav truncates the nav label to its first word, matching the
+// mockup's bottomNav().
 export function shortNavLabel(label) {
-	if (BOTTOM_SHORT[label]) return BOTTOM_SHORT[label];
 	return label.split(' ')[0];
+}
+
+// Page title for the topbar comes from the nav entry for the current page.
+export function getNavLabel(role, href) {
+	const item = getRoleNavigation(role).find(([entryHref]) => entryHref === href);
+	return item ? item[1] : '';
 }
 
 function resolveRole(user) {
@@ -80,8 +111,8 @@ export function renderHamburgerMenu(container, { activeHref }) {
 	container.innerHTML = `
 		<aside class="sidebar" aria-label="Main navigation">
 			<div class="brand">
-				<div class="mark">S</div>
-				<div class="txt"><div>Stead</div><div>Property management</div></div>
+				<div class="mark">${icon('key')}</div>
+				<div class="txt"><div id="brand-business-name">Stead</div><div>Property management</div></div>
 			</div>
 			<div class="sidebar-who">
 				<div class="avatar">${escapeHtml(name.charAt(0).toUpperCase())}</div>
@@ -119,6 +150,13 @@ export function renderHamburgerMenu(container, { activeHref }) {
 		overlay.classList.add('open');
 		overlay.setAttribute('aria-hidden', 'false');
 	};
+
+	// Fill in the real business name once fetched — "Stead" shows briefly
+	// as a fallback on first load, then gets replaced.
+	getBusinessName().then((businessName) => {
+		const el = container.querySelector('#brand-business-name');
+		if (el) el.textContent = businessName;
+	});
 
 	overlay.addEventListener('click', event => {
 		if (event.target === overlay) close();

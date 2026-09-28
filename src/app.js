@@ -1,6 +1,6 @@
 // src/app.js — hash-based router + route guard. Add a `case` here as
 // each new phase's pages get built.
-import { renderLogin } from './auth/login.page.js';
+import { renderLogin, routeToDashboard } from './auth/login.page.js';
 import { renderDistricts } from './admin/districts.page.js';
 import { renderCodes } from './admin/codes.page.js';
 import { renderProperties } from './admin/properties.page.js';
@@ -33,12 +33,29 @@ const ADMIN_ROLES = ['owner', 'admin', 'property_manager'];
 const TENANT_ROLES = ['tenant'];
 const PROVIDER_ROLES = ['service_provider'];
 
+// '#/' (no hash), the login route, and the bare role paths all mean "take me to
+// where this role lands" — for a signed-in user. Keeps old links/bookmarks working.
+const ENTRY_HASHES = ['#/', '#/login', '#/tenant', '#/admin', '#/provider'];
+
+function isKnownRole(user) {
+  return ADMIN_ROLES.includes(user.role) || TENANT_ROLES.includes(user.role) || PROVIDER_ROLES.includes(user.role);
+}
+
 async function router() {
-  const hash = window.location.hash || '#/login';
+  const hash = window.location.hash || '#/';
   const user = getCurrentUser();
 
-  if (hash !== '#/login' && !user) {
-    window.location.hash = '#/login';
+  if (!user) {
+    if (hash !== '#/login' && hash !== '#/') {
+      window.location.hash = '#/login';
+      return;
+    }
+    renderLogin(root);
+    return;
+  }
+
+  if (isKnownRole(user) && ENTRY_HASHES.includes(hash)) {
+    routeToDashboard(user.role);
     return;
   }
 
@@ -167,19 +184,10 @@ async function router() {
       renderProviderProfile(root);
       break;
 
-    // '#/tenant' and '#/provider' land here once Phase 2/4 build those
-    // dashboards — for now, send everyone somewhere sensible.
+    // Any unknown hash (typo, retired link): send the user to their own home.
     default:
-      if (user) {
-        if (ADMIN_ROLES.includes(user.role)) {
-          window.location.hash = '#/admin/districts';
-        } else if (TENANT_ROLES.includes(user.role)) {
-          window.location.hash = '#/tenant/home';
-        } else if (PROVIDER_ROLES.includes(user.role)) {
-          window.location.hash = '#/provider/tasks';
-        } else {
-          window.location.hash = '#/login';
-        }
+      if (isKnownRole(user)) {
+        routeToDashboard(user.role);
       } else {
         window.location.hash = '#/login';
       }

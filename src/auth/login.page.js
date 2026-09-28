@@ -1,22 +1,22 @@
 // src/auth/login.page.js
 import { apiFetch } from '../shared/api.js';
+import { icon } from '../shared/icons.js';
 import { setToken, setPreToken } from './session.js';
 import { renderRegisterName } from './register-name.page.js';
 
 export function renderLogin(root) {
   root.innerHTML = `
-    <div class="auth-shell">
-      <div class="auth-card">
-        <h1 class="serif">Stead</h1>
-        <p class="sub">Enter the access code you were given.</p>
+    <div class="login-screen">
+      <div class="login-card">
+        <div class="mark">${icon('key')}</div>
+        <h1 class="serif">Welcome to <span id="brand-name">Stead</span></h1>
+        <p class="sub">Enter the code you were given. It knows your district and your role — you'll land exactly where you need to be.</p>
         <form id="login-form">
-          <div class="field">
-            <label for="code">Access code</label>
-            <input id="code" name="code" placeholder="e.g. SDL-TEN-4821" autocomplete="off" autocapitalize="characters" required />
-          </div>
+          <input class="code-input" id="code" name="code" placeholder="e.g. PTN-TEN-2201" autocomplete="off" autocapitalize="characters" spellcheck="false" required />
           <div id="login-error" class="error-text" style="display:none;"></div>
-          <button class="btn btn-primary" type="submit" style="width:100%;" id="login-submit">Continue</button>
+          <button class="btn brass block" type="submit" id="login-submit">Continue</button>
         </form>
+        <div class="login-foot">No app store install needed — this runs as a web app you can add to your home screen.</div>
       </div>
     </div>
   `;
@@ -31,7 +31,7 @@ export function renderLogin(root) {
     submitBtn.disabled = true;
     submitBtn.textContent = 'Checking...';
 
-    const code = form.code.value.trim();
+    const code = form.code.value.trim().toUpperCase();
     try {
       const data = await apiFetch('/auth/validate-code', {
         method: 'POST',
@@ -58,10 +58,10 @@ export function renderLogin(root) {
 
 export function routeToDashboard(role) {
   if (['owner', 'admin', 'property_manager'].includes(role)) {
-    window.location.hash = '#/admin/districts';
+    window.location.hash = '#/admin/overview';
   } else if (role === 'service_provider') {
     window.location.hash = '#/provider/tasks';
   } else {
-    window.location.hash = '#/tenant'; // built in a later phase
+    window.location.hash = '#/tenant/home';
   }
 }

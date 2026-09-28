@@ -1,5 +1,6 @@
 import { apiFetch } from './api.js';
 import { icon } from './icons.js';
+import { toast } from './toast.js';
 
 export function renderSosButton(container) {
 	container.innerHTML = `
@@ -18,10 +19,10 @@ export function renderSosButton(container) {
 			<div class="modal-box" role="dialog" aria-labelledby="sos-modal-title">
 				<div class="modal-icon">${icon('siren')}</div>
 				<h3 id="sos-modal-title">Send emergency alert?</h3>
-				<p>This notifies the owner immediately with your unit and location. Only use this for a genuine emergency.</p>
+				<p>This notifies the owner immediately with your unit details. Only use this for a genuine emergency.</p>
 				<div class="modal-actions">
-					<button class="btn btn-outline sos-cancel" type="button">Cancel</button>
-					<button class="btn btn-danger sos-confirm" type="button">Yes, send</button>
+					<button class="btn secondary block sos-cancel" type="button">Cancel</button>
+					<button class="btn rust block sos-confirm" type="button">Yes, send</button>
 				</div>
 				<div class="sos-status error-text" hidden></div>
 			</div>
@@ -56,6 +57,7 @@ export function renderSosButton(container) {
 		try {
 			await apiFetch('/emergency', { method: 'POST', body: {} });
 			closeModal();
+			toast('Emergency alert sent to the owner.');
 		} catch (err) {
 			status.textContent = err.message;
 			status.hidden = false;

@@ -27,6 +27,8 @@ export function renderShell(root, { activeHref, title }) {
 	const menu = renderHamburgerMenu(root.querySelector('#menu-root'), { activeHref });
 	renderTopbar(root.querySelector('#topbar-root'), {
 		title,
+		activeHref,
+		role,
 		isTenant: role === 'tenant',
 		onMenuOpen: menu.open,
 	});
