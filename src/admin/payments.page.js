@@ -100,7 +100,7 @@ function renderPaymentsTable(payments, units) {
 					? payment.paid_at
 						? `<span class="small muted">Paid ${escapeHtml(formatDueDate(payment.paid_at, 'short'))}</span>`
 						: '<span class="small muted">—</span>'
-					: `<button class="btn brass sm mark-paid-btn" data-id="${payment.id}">Mark paid</button>`;
+					: `<button class="btn brass sm mark-paid-btn" data-id="${escapeHtml(payment.id)}">Mark paid</button>`;
 
 			return `
 				<tr>
