@@ -2,134 +2,154 @@
 import { renderShell } from '../shared/shell.js';
 import { apiFetch } from '../shared/api.js';
 import { getCurrentUser } from '../auth/session.js';
-import { renderQuickAccessGrid, QUICK_ACCESS } from '../shared/quick-access-grid.js';
+import { formatMoney, formatDueDate, capitalise } from '../shared/format.js';
+
+const PAYMENT_BADGE = {
+  outstanding: { cls: 'outstanding', label: 'Not yet marked paid' },
+  pending: { cls: 'pending', label: 'Pending' },
+  paid: { cls: 'finished', label: 'Paid' },
+};
 
 export async function renderHome(root) {
   const content = renderShell(root, { activeHref: '#/tenant/home', title: 'Home' });
   const user = getCurrentUser();
 
   content.innerHTML = `
-    <div class="card">
-      <h3 class="serif" style="margin-top:0;">Rent due</h3>
-      <div id="rent-summary">Loading...</div>
+    <div class="pagehead">
+      <h2 id="home-greeting">${escapeHtml(greetingFor(user))}</h2>
+      <p id="home-sub"></p>
     </div>
-    <div class="card">
-      <h3 class="serif" style="margin-top:0;">Recent activity</h3>
-      <div id="activity-feed">Loading...</div>
-    </div>
-      <div id="quick-access-slot"></div>
+    <div class="card" id="rent-card">Loading...</div>
+    <div class="card" id="activity-card">Loading...</div>
   `;
 
-  renderQuickAccessGrid(content.querySelector('#quick-access-slot'), QUICK_ACCESS.tenant);
-  async function loadRentSummary() {
-    const summaryEl = content.querySelector('#rent-summary');
-    try {
-      // Get the tenant's unit first
-      const units = await apiFetch('/units');
-      const tenantUnit = units.find(u => u.tenant_user_id === user.user_id);
-      
-      if (!tenantUnit) {
-        summaryEl.innerHTML = '<p style="color:var(--slate);">No unit assigned.</p>';
-        return;
-      }
+  const rentCard = content.querySelector('#rent-card');
+  const activityCard = content.querySelector('#activity-card');
+  const subEl = content.querySelector('#home-sub');
 
-      // Get payments for this unit
-      const payments = await apiFetch('/payments');
-      const unitPayments = payments.filter(p => p.unit_id === tenantUnit.id);
-      
-      // Find the next outstanding or pending payment
-      const nextPayment = unitPayments
-        .filter(p => p.status === 'outstanding' || p.status === 'pending')
-        .sort((a, b) => new Date(a.due_date) - new Date(b.due_date))[0];
+  try {
+    const [units, payments, maintenance, settings] = await Promise.all([
+      apiFetch('/units'),
+      apiFetch('/payments'),
+      apiFetch('/maintenance'),
+      // No notice period in app_settings today; probed so the row appears
+      // as soon as the backend exposes one. Never blocks the cards.
+      apiFetch('/settings').catch(() => null),
+    ]);
 
-      if (nextPayment) {
-        const statusClass = nextPayment.status === 'outstanding' ? 'badge-inactive' : 'badge-active';
-        summaryEl.innerHTML = `
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-            <div>
-              <div style="font-size:24px;font-weight:600;font-family:'Newsreader',serif;">R${Number(nextPayment.amount).toLocaleString()}</div>
-              <div style="font-size:13px;color:var(--slate);">Due ${new Date(nextPayment.due_date).toLocaleDateString()}</div>
-            </div>
-            <span class="badge ${statusClass}">${nextPayment.status}</span>
-          </div>
-          <a href="#/tenant/pay" class="btn btn-outline" style="width:100%;text-align:center;">View all payments</a>
-        `;
-      } else {
-        summaryEl.innerHTML = `
-          <div style="color:var(--forest);margin-bottom:12px;">No outstanding payments</div>
-          <a href="#/tenant/pay" class="btn btn-outline" style="width:100%;text-align:center;">View payment history</a>
-        `;
-      }
-    } catch (err) {
-      summaryEl.innerHTML = `<p class="error-text">${escapeHtml(err.message)}</p>`;
+    const tenantUnit = units.find(u => u.tenant_user_id === user.user_id);
+
+    if (!tenantUnit) {
+      const empty = '<p class="small muted">No unit assigned.</p>';
+      rentCard.innerHTML = empty;
+      activityCard.innerHTML = empty;
+      return;
     }
+
+    subEl.textContent = subLineFor(tenantUnit);
+
+    const unitPayments = payments.filter(p => p.unit_id === tenantUnit.id);
+    const unitMaintenance = maintenance.filter(m => m.unit_id === tenantUnit.id);
+
+    rentCard.innerHTML = rentCardHtml(unitPayments);
+    activityCard.innerHTML = activityCardHtml(unitMaintenance, unitPayments, noticePeriodMonths(settings));
+  } catch (err) {
+    const failure = `<p class="error-text">${escapeHtml(err.message)}</p>`;
+    rentCard.innerHTML = failure;
+    activityCard.innerHTML = failure;
+  }
+}
+
+function rentCardHtml(unitPayments) {
+  const nextPayment = unitPayments
+    .filter(p => p.status === 'outstanding' || p.status === 'pending')
+    .sort((a, b) => new Date(a.due_date) - new Date(b.due_date))[0];
+
+  const viewPayments = '<a href="#/tenant/pay" class="btn secondary sm" style="margin-top:10px;">View payments</a>';
+
+  if (!nextPayment) {
+    return `<div class="small" style="color:var(--forest);">No outstanding payments</div>${viewPayments}`;
   }
 
-  async function loadActivityFeed() {
-    const feedEl = content.querySelector('#activity-feed');
-    try {
-      // Get the tenant's unit
-      const units = await apiFetch('/units');
-      const tenantUnit = units.find(u => u.tenant_user_id === user.user_id);
-      
-      if (!tenantUnit) {
-        feedEl.innerHTML = '<p style="color:var(--slate);">No unit assigned.</p>';
-        return;
-      }
+  const badge = PAYMENT_BADGE[nextPayment.status];
+  return `
+    <div class="row">
+      <span class="small muted">${escapeHtml(`${paymentWord(nextPayment.type)} due ${formatDueDate(nextPayment.due_date)}`)}</span>
+      <span class="badge ${badge.cls}">${escapeHtml(badge.label)}</span>
+    </div>
+    <div class="row" style="margin-top:6px;"><span class="amount">${escapeHtml(formatMoney(nextPayment.amount))}</span></div>
+    <p class="small muted" style="margin:8px 0 0;">Pay via the bank details on the Rent &amp; accounts page — the admin will mark it as received.</p>
+    ${viewPayments}
+  `;
+}
 
-      // Get maintenance requests and payments for this unit
-      const [maintenance, payments] = await Promise.all([
-        apiFetch('/maintenance'),
-        apiFetch('/payments')
-      ]);
+function activityCardHtml(unitMaintenance, unitPayments, noticeMonths) {
+  const items = [
+    ...unitMaintenance.map(m => ({ kind: 'maintenance', at: m.created_at, category: m.category, status: m.status })),
+    ...unitPayments.map(p => ({ kind: 'payment', at: p.created_at, type: p.type, amount: p.amount, status: p.status })),
+  ]
+    .sort((a, b) => new Date(b.at) - new Date(a.at))
+    .slice(0, 5);
 
-      const unitMaintenance = maintenance.filter(m => m.unit_id === tenantUnit.id);
-      const unitPayments = payments.filter(p => p.unit_id === tenantUnit.id);
+  const noticeRow = noticeMonths == null
+    ? ''
+    : `<div class="row small"><span>Notice period</span><span class="small muted">${escapeHtml(noticeMonths)} months required</span></div>`;
 
-      // Combine and sort by created_at descending
-      const activities = [
-        ...unitMaintenance.map(m => ({ ...m, type: 'maintenance' })),
-        ...unitPayments.map(p => ({ ...p, type: 'payment' }))
-      ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-
-      if (!activities.length) {
-        feedEl.innerHTML = '<p style="color:var(--slate);">No recent activity.</p>';
-        return;
-      }
-
-      feedEl.innerHTML = `
-        <table class="list">
-          <thead><tr><th>Type</th><th>Details</th><th>Date</th></tr></thead>
-          <tbody>
-            ${activities.map(activity => {
-              if (activity.type === 'maintenance') {
-                return `
-                  <tr>
-                    <td><span style="font-size:12px;color:var(--slate);">Maintenance</span></td>
-                    <td>${escapeHtml(activity.category)}</td>
-                    <td>${new Date(activity.created_at).toLocaleDateString()}</td>
-                  </tr>
-                `;
-              } else {
-                return `
-                  <tr>
-                    <td><span style="font-size:12px;color:var(--slate);">Payment</span></td>
-                    <td>R${Number(activity.amount).toLocaleString()} - ${activity.type}</td>
-                    <td>${new Date(activity.created_at).toLocaleDateString()}</td>
-                  </tr>
-                `;
-              }
-            }).join('')}
-          </tbody>
-        </table>
-      `;
-    } catch (err) {
-      feedEl.innerHTML = `<p class="error-text">${escapeHtml(err.message)}</p>`;
-    }
+  if (!items.length && !noticeRow) {
+    return '<p class="small muted">No recent activity.</p>';
   }
 
-  await loadRentSummary();
-  await loadActivityFeed();
+  const rows = items.map((item, i) => {
+    const isLast = i === items.length - 1 && !noticeRow;
+    return `<div class="row small"${isLast ? '' : ' style="margin-bottom:8px;"'}>
+      <span>${escapeHtml(item.kind === 'maintenance' ? maintenanceText(item) : paymentActivityText(item))}</span>
+      <span class="badge ${activityBadge(item).cls}">${escapeHtml(activityBadge(item).label)}</span>
+    </div>`;
+  }).join('');
+
+  return `<b class="small">Recent activity</b><div class="hairline"></div>${rows}${noticeRow}`;
+}
+
+function maintenanceText(item) {
+  return item.category ? `Maintenance — ${item.category}` : 'Maintenance';
+}
+
+function paymentActivityText(item) {
+  return `${paymentWord(item.type)} — ${formatMoney(item.amount)}`;
+}
+
+function activityBadge(item) {
+  if (item.kind === 'maintenance') {
+    return { cls: item.status, label: capitalise(item.status) };
+  }
+  return PAYMENT_BADGE[item.status] || { cls: item.status, label: String(item.status || '') };
+}
+
+function paymentWord(type) {
+  if (type === 'other') return 'Payment';
+  return capitalise(type) || 'Payment';
+}
+
+function greetingFor(user) {
+  const hour = new Date().getHours();
+  const partOfDay = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+  const firstName = String(user.name || '').trim().split(' ')[0];
+  return firstName ? `${partOfDay}, ${firstName}` : partOfDay;
+}
+
+function subLineFor(unit) {
+  const parts = [];
+  if (unit.property_name) parts.push(unit.property_name);
+  if (unit.unit_number) parts.push(`Unit ${unit.unit_number}`);
+  if (unit.district_name) parts.push(unit.district_name);
+  return parts.join(' · ');
+}
+
+function noticePeriodMonths(settings) {
+  if (!settings) return null;
+  const value = settings.notice_period_months ?? settings.noticePeriod ?? settings.notice_period;
+  const months = Number(value);
+  return Number.isFinite(months) ? months : null;
 }
 
 function escapeHtml(str) {
