@@ -42,8 +42,14 @@ export async function renderMaintenance(root) {
 	`;
 
 	try {
-		const [units, maintenance] = await Promise.all([apiFetch('/units'), apiFetch('/maintenance')]);
-		tenantUnit = units.find((u) => u.tenant_user_id === user.user_id);
+		const [unitData, maintenance] = await Promise.all([
+			apiFetch('/units/me').catch((err) => {
+				if (err.message.includes('404')) return null;
+				throw err;
+			}),
+			apiFetch('/maintenance'),
+		]);
+		tenantUnit = unitData;
 		requests = maintenance.filter((r) => r.unit_id === tenantUnit?.id);
 
 		if (!tenantUnit) {

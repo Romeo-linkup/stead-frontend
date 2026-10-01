@@ -28,16 +28,17 @@ export async function renderHome(root) {
   const subEl = content.querySelector('#home-sub');
 
   try {
-    const [units, payments, maintenance, settings] = await Promise.all([
-      apiFetch('/units'),
+    const [tenantUnit, payments, maintenance, settings] = await Promise.all([
+      apiFetch('/units/me').catch((err) => {
+        if (err.message.includes('404')) return null;
+        throw err;
+      }),
       apiFetch('/payments'),
       apiFetch('/maintenance'),
       // No notice period in app_settings today; probed so the row appears
       // as soon as the backend exposes one. Never blocks the cards.
       apiFetch('/settings').catch(() => null),
     ]);
-
-    const tenantUnit = units.find(u => u.tenant_user_id === user.user_id);
 
     if (!tenantUnit) {
       const empty = '<p class="small muted">No unit assigned.</p>';
@@ -48,8 +49,8 @@ export async function renderHome(root) {
 
     subEl.textContent = subLineFor(tenantUnit);
 
-    const unitPayments = payments.filter(p => p.unit_id === tenantUnit.id);
-    const unitMaintenance = maintenance.filter(m => m.unit_id === tenantUnit.id);
+    const unitPayments = payments.filter((p) => p.unit_id === tenantUnit.id);
+    const unitMaintenance = maintenance.filter((m) => m.unit_id === tenantUnit.id);
 
     rentCard.innerHTML = rentCardHtml(unitPayments);
     activityCard.innerHTML = activityCardHtml(unitMaintenance, unitPayments, noticePeriodMonths(settings));
@@ -141,7 +142,6 @@ function subLineFor(unit) {
   const parts = [];
   if (unit.property_name) parts.push(unit.property_name);
   if (unit.unit_number) parts.push(`Unit ${unit.unit_number}`);
-  if (unit.district_name) parts.push(unit.district_name);
   return parts.join(' · ');
 }
 

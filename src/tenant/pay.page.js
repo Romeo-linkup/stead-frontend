@@ -28,14 +28,15 @@ export async function renderPay(root) {
   const bodyEl = content.querySelector('#pay-body');
 
   try {
-    const [units, payments, settings] = await Promise.all([
-      apiFetch('/units'),
+    const [tenantUnit, payments, settings] = await Promise.all([
+      apiFetch('/units/me').catch((err) => {
+        if (err.message.includes('404')) return null;
+        throw err;
+      }),
       apiFetch('/payments'),
       // No bank details in app_settings today; the call must never block the page.
       apiFetch('/settings').catch(() => ({})),
     ]);
-
-    const tenantUnit = units.find(u => u.tenant_user_id === user.user_id);
 
     if (!tenantUnit) {
       subEl.textContent = 'No unit assigned.';
@@ -44,7 +45,7 @@ export async function renderPay(root) {
     }
 
     const unitPayments = payments
-      .filter(p => p.unit_id === tenantUnit.id)
+      .filter((p) => p.unit_id === tenantUnit.id)
       .sort((a, b) => new Date(b.due_date) - new Date(a.due_date));
 
     subEl.textContent = subLineFor(tenantUnit);
