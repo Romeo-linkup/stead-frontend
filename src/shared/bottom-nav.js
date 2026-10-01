@@ -2,8 +2,8 @@ import { getRoleNavigation, shortNavLabel } from './hamburger-menu.js';
 import { icon } from './icons.js';
 
 const BOTTOM = {
-	tenant: ['#/tenant/home', '#/tenant/maintenance', '#/tenant/messages', '__menu'],
-	service_provider: ['#/provider/tasks', '#/provider/messages', '__menu'],
+	tenant: ['#/tenant/home', '#/tenant/maintenance', '#/tenant/messages', '#/tenant/notices', '__menu'],
+	service_provider: ['#/provider/tasks', '#/provider/messages', '#/provider/notices', '__menu'],
 	admin: ['#/admin/overview', '#/admin/maintenance', '#/admin/payments', '__menu'],
 };
 

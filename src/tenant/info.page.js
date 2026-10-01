@@ -1,4 +1,6 @@
 import { renderShell } from '../shared/shell.js';
+import { apiFetch } from '../shared/api.js';
+import { toast } from '../shared/toast.js';
 
 export function renderInfo(root) {
 	const content = renderShell(root, { activeHref: '#/tenant/info', title: 'Information' });
@@ -9,37 +11,54 @@ export function renderInfo(root) {
 		</div>
 		<div class="card">
 			<b class="small">Building rules</b>
-			<ul class="small muted" style="margin:8px 0 0; padding-left:18px; line-height:1.8;">
-				<li>Quiet hours are 22:00–06:00, every day.</li>
-				<li>No structural changes or painting without written permission.</li>
-				<li>Refuse goes out the night before collection, in sealed bags.</li>
-				<li>Common areas must be kept clear of personal items.</li>
-				<li>Pets are only allowed where your lease specifically permits them.</li>
-			</ul>
+			<div id="info-building-rules"></div>
 		</div>
 		<div class="card">
 			<b class="small">Utilities</b>
-			<p class="small muted" style="margin:8px 0 0;">
-				Water is metered per unit and billed with rent. Electricity is prepaid —
-				load tokens using your meter number. If a meter looks faulty, log a
-				maintenance request rather than adjusting it yourself.
-			</p>
+			<div id="info-utilities"></div>
 		</div>
 		<div class="card">
 			<b class="small">Leaving the property</b>
-			<p class="small muted" style="margin:8px 0 0;">
-				Two calendar months' written notice is required before moving out. A joint
-				inspection is done before keys are handed back, and your deposit is
-				refunded after that, less any damage beyond fair wear and tear.
-			</p>
+			<div id="info-leaving-property"></div>
 		</div>
 		<div class="card">
 			<b class="small">Contacts</b>
-			<p class="small muted" style="margin:8px 0 0;">
-				For anything non-urgent, use <a href="#/tenant/messages">Messages</a> so there's
-				a written record. For a genuine emergency, use the SOS button at the top of
-				the screen.
-			</p>
+			<div id="info-contacts"></div>
 		</div>
 	`;
+
+	loadTenantInfo(content);
+}
+
+async function loadTenantInfo(content) {
+	try {
+		const data = await apiFetch('/district-info');
+		renderTenantSection(content, 'building_rules', data.sections.building_rules);
+		for (const key of ['utilities', 'leaving_property', 'contacts']) {
+			renderTenantSection(content, key, data.sections[key]);
+		}
+	} catch (err) {
+		toast(err.message || 'Could not load property information.');
+		renderTenantSection(content, 'building_rules', 'Could not load this section.');
+		for (const key of ['utilities', 'leaving_property', 'contacts']) {
+			renderTenantSection(content, key, 'Could not load this section.');
+		}
+	}
+}
+
+function renderTenantSection(content, key, value) {
+	const target = content.querySelector(`#info-${key}`);
+	if (key === 'building_rules') {
+		const items = String(value ?? '').split(/\r?\n/).filter((line) => line.trim());
+		target.innerHTML = `<ul class="small muted" style="margin:8px 0 0; padding-left:18px; line-height:1.8;">${items.map((line) => `<li>${escapeHtml(line)}</li>`).join('')}</ul>`;
+		return;
+	}
+
+	target.innerHTML = `<p class="small muted" style="margin:8px 0 0;">${escapeHtml(value).replace(/\r?\n/g, '<br>')}</p>`;
+}
+
+function escapeHtml(value) {
+	const div = document.createElement('div');
+	div.textContent = value == null ? '' : String(value);
+	return div.innerHTML;
 }

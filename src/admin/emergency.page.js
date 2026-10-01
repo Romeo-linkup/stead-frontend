@@ -1,7 +1,15 @@
 import { renderShell } from '../shared/shell.js';
 import { apiFetch } from '../shared/api.js';
+import { toast } from '../shared/toast.js';
+
+let alertsIntervalId = null;
 
 export async function renderEmergency(root) {
+	if (alertsIntervalId !== null) {
+		window.clearInterval(alertsIntervalId);
+		alertsIntervalId = null;
+	}
+
 	const content = renderShell(root, { activeHref: '#/admin/emergency', title: 'Emergency alerts' });
 	content.innerHTML = `
 		<div class="pagehead"><h2>Emergency alerts</h2><p>Live district alerts, refreshed every 15 seconds.</p></div>
@@ -18,21 +26,23 @@ export async function renderEmergency(root) {
 			}
 
 			list.innerHTML = alerts.map(alert => {
+				const statusDetails = {
+					unacknowledged: { label: 'Unacknowledged', badge: 'outstanding', action: 'acknowledge' },
+					acknowledged: { label: 'Acknowledged', badge: 'pending', action: 'resolve' },
+					resolved: { label: 'Resolved', badge: 'finished', action: null },
+				};
+				const status = statusDetails[alert.status] || { label: alert.status || 'Unknown', badge: 'pending', action: null };
 				const urgent = alert.status === 'unacknowledged';
+				const location = `${alert.property_name || 'Property'}, Unit ${alert.unit_number || '-'}`;
+				const actionButton = status.action
+					? `<div class="row" style="margin-top:8px;"><button class="btn ${status.action === 'acknowledge' ? 'rust' : 'secondary'} sm" data-action="${status.action}" data-id="${escapeAttr(alert.id)}">${status.action === 'acknowledge' ? 'Acknowledge' : 'Resolve'}</button></div>`
+					: '';
 				return `
-					<article class="card" style="border-color:${urgent ? 'var(--rust)' : 'var(--line)'};background:${urgent ? '#FFF4F0' : 'var(--white)'};">
-						<div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;">
-							<div>
-								<div style="font-weight:700;color:${urgent ? 'var(--rust)' : 'var(--ink)'};">${urgent ? 'UNACKNOWLEDGED' : escapeHtml(alert.status.toUpperCase())}</div>
-								<div style="margin-top:5px;">${escapeHtml(alert.property_name || 'Property')} · Unit ${escapeHtml(alert.unit_number || '-')}</div>
-								<div class="small" style="color:var(--slate);margin-top:4px;">Triggered by ${escapeHtml(alert.triggered_by_name || 'Tenant')} · ${formatDate(alert.created_at)}</div>
-							</div>
-							<div style="display:flex;gap:8px;flex-wrap:wrap;">
-								${urgent ? `<button class="btn btn-primary" data-action="acknowledge" data-id="${alert.id}">Acknowledge</button>` : ''}
-								${alert.status !== 'resolved' ? `<button class="btn btn-outline" data-action="resolve" data-id="${alert.id}">Resolve</button>` : ''}
-							</div>
-						</div>
-					</article>
+					<div class="card">
+						<div class="row"><b class="small" style="color:${urgent ? 'var(--rust)' : 'inherit'};">${escapeHtml(location)}</b><span class="badge ${status.badge}">${escapeHtml(status.label)}</span></div>
+						<p class="small muted" style="margin:6px 0;">Triggered by ${escapeHtml(alert.triggered_by_name || 'Tenant')} · ${escapeHtml(formatDate(alert.created_at))}</p>
+						${actionButton}
+					</div>
 				`;
 			}).join('');
 		} catch (err) {
@@ -45,16 +55,17 @@ export async function renderEmergency(root) {
 		if (!button) return;
 		button.disabled = true;
 		try {
-			await apiFetch(`/emergency/${button.dataset.id}/${button.dataset.action}`, { method: 'PATCH', body: {} });
+			await apiFetch(`/emergency/${encodeURIComponent(button.dataset.id)}/${button.dataset.action}`, { method: 'PATCH', body: {} });
+			toast(button.dataset.action === 'acknowledge' ? 'Alert acknowledged.' : 'Alert marked resolved.');
 			await loadAlerts();
 		} catch (err) {
 			button.disabled = false;
-			window.alert(err.message);
+			toast(err.message);
 		}
 	});
 
 	await loadAlerts();
-	window.setInterval(loadAlerts, 15000);
+	alertsIntervalId = window.setInterval(loadAlerts, 15000);
 }
 
 function formatDate(value) {
@@ -65,4 +76,13 @@ function escapeHtml(value) {
 	const div = document.createElement('div');
 	div.textContent = value == null ? '' : String(value);
 	return div.innerHTML;
+}
+
+function escapeAttr(value) {
+	return String(value == null ? '' : value)
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/'/g, '&#39;');
 }

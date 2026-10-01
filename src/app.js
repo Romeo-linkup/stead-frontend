@@ -8,14 +8,18 @@ import { renderLeases } from './admin/leases.page.js';
 import { renderComplaints as renderAdminComplaints } from './admin/complaints.page.js';
 import { renderEmergency } from './admin/emergency.page.js';
 import { renderAudit } from './admin/audit.page.js';
+import { renderInfo as renderAdminInfo } from './admin/info.page.js';
+import { renderNotices as renderAdminNotices } from './admin/notices.page.js';
 import { renderHome } from './tenant/home.page.js';
 import { renderPay } from './tenant/pay.page.js';
 import { renderMaintenance } from './tenant/maintenance.page.js';
 import { renderLease } from './tenant/lease.page.js';
 import { renderTasks } from './provider/tasks.page.js';
 import { renderMessages as renderProviderMessages } from './provider/messages.page.js';
+import { renderNotices as renderProviderNotices } from './provider/notices.page.js';
 import { renderComplaints as renderTenantComplaints } from './tenant/complaints.page.js';
 import { renderMessages as renderTenantMessages } from './tenant/messages.page.js';
+import { renderNotices as renderTenantNotices } from './tenant/notices.page.js';
 import { renderInfo as renderTenantInfo } from './tenant/info.page.js';
 import { renderProfile as renderTenantProfile } from './tenant/profile.page.js';
 import { renderInfo as renderProviderInfo } from './provider/info.page.js';
@@ -124,6 +128,11 @@ async function router() {
       renderAudit(root);
       break;
 
+    case hash === '#/admin/info':
+      if (!ADMIN_ROLES.includes(user.role)) return unauthorized();
+      renderAdminInfo(root);
+      break;
+
     case hash === '#/tenant/home':
       if (!TENANT_ROLES.includes(user.role)) return unauthorized();
       renderHome(root);
@@ -182,6 +191,21 @@ async function router() {
     case hash === '#/provider/profile':
       if (!PROVIDER_ROLES.includes(user.role)) return unauthorized();
       renderProviderProfile(root);
+      break;
+
+    case hash === '#/admin/notices':
+      if (!ADMIN_ROLES.includes(user.role)) return unauthorized();
+      renderAdminNotices(root);
+      break;
+
+    case hash === '#/tenant/notices':
+      if (!TENANT_ROLES.includes(user.role)) return unauthorized();
+      renderTenantNotices(root);
+      break;
+
+    case hash === '#/provider/notices':
+      if (!PROVIDER_ROLES.includes(user.role)) return unauthorized();
+      renderProviderNotices(root);
       break;
 
     // Any unknown hash (typo, retired link): send the user to their own home.
