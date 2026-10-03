@@ -2,8 +2,13 @@
 	"name": "stead-frontend",
 	"version": "1.0.0",
 	"private": true,
+	"type": "module",
 	"scripts": {
 		"dev": "npx serve . -l 3000",
-		"start": "npx serve . -l 3000"
+		"start": "npx serve . -l 3000",
+		"generate:icons": "node scripts/generate-icons.js"
+	},
+	"devDependencies": {
+		"sharp": "^0.35.5"
 	}
 }

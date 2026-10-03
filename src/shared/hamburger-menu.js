@@ -1,6 +1,8 @@
 import { logout, getCurrentUser } from '../auth/session.js';
 import { icon } from './icons.js';
 import { apiFetch } from './api.js';
+import { getThemePreference, setThemePreference } from './theme.js';
+import { logoSvg } from './logo.js';
 
 // Cached across page navigations within a session, so every renderShell()
 // call doesn't refetch the business name on every hash change.
@@ -39,14 +41,12 @@ const NAV = {
 		['#/tenant/maintenance', 'Maintenance', 'wrench'],
 		['#/tenant/lease', 'My lease', 'document'],
 		['#/tenant/complaints', 'Complaints', 'message'],
-		['#/tenant/messages', 'Notices', 'bullhorn'],
 		['#/tenant/notices', 'Notices', 'bullhorn'],
 		['#/tenant/info', 'Property info', 'info'],
 		['#/tenant/profile', 'My profile', 'profile'],
 	],
 	service_provider: [
 		['#/provider/tasks', 'My tasks', 'wrench'],
-		['#/provider/messages', 'Notices', 'bullhorn'],
 		['#/provider/notices', 'Notices', 'bullhorn'],
 		['#/provider/info', 'Site info', 'info'],
 		['#/provider/profile', 'My profile', 'profile'],
@@ -59,7 +59,9 @@ const NAV = {
 		['#/admin/maintenance', 'Maintenance', 'wrench'],
 		['#/admin/complaints', 'Complaints', 'message'],
 		['#/admin/payments', 'Payments', 'wallet'],
+		['#/admin/invoices', 'Invoices', 'invoice'],
 		['#/admin/codes', 'Codes & roles', 'key'],
+		['#/admin/settings', 'Settings', 'sliders', ['owner', 'admin']],
 		['#/admin/audit', 'Audit log', 'list'],
 		['#/admin/notices', 'Notices', 'bullhorn'],
 		['#/admin/info', 'Property info', 'info'],
@@ -69,7 +71,8 @@ const NAV = {
 };
 
 export function getRoleNavigation(role) {
-	return NAV[role] || NAV.admin;
+	const currentRole = getCurrentUser()?.role;
+	return (NAV[role] || NAV.admin).filter((entry) => !entry[3] || entry[3].includes(currentRole));
 }
 
 // The bottom nav truncates the nav label to its first word, matching the
@@ -105,6 +108,35 @@ function navLink([href, label, iconName], activeHref) {
 	return `<a data-menu-link href="${href}" class="${active.trim()}">${icon(iconName)}<span>${escapeHtml(label)}</span></a>`;
 }
 
+function themeButtonGroup() {
+	const pref = getThemePreference();
+	const options = [
+		['system', 'System'],
+		['light', 'Light'],
+		['dark', 'Dark'],
+	];
+
+	return `<div class="appearance-picker">
+		<div class="appearance-label">Appearance</div>
+		<div class="appearance-group">
+			${options.map(([value, label]) => `<button type="button" class="btn secondary sm" data-theme-pref="${value}" aria-pressed="${pref === value}">${label}</button>`).join('')}
+		</div>
+	</div>`;
+}
+
+function syncThemeButtons(container) {
+	const pref = getThemePreference();
+	container.querySelectorAll('[data-theme-pref]').forEach(button => {
+		const isActive = button.dataset.themePref === pref;
+		button.setAttribute('aria-pressed', String(isActive));
+		button.classList.toggle('active', isActive);
+		button.classList.toggle('secondary', !isActive);
+		if (isActive) {
+			button.classList.remove('secondary');
+		}
+	});
+}
+
 export function renderHamburgerMenu(container, { activeHref }) {
 	const user = getCurrentUser() || {};
 	const role = resolveRole(user);
@@ -115,7 +147,7 @@ export function renderHamburgerMenu(container, { activeHref }) {
 	container.innerHTML = `
 		<aside class="sidebar" aria-label="Main navigation">
 			<div class="brand">
-				<div class="mark">${icon('key')}</div>
+				<div class="mark">${logoSvg({ size: 28, variant: 'dark' })}</div>
 				<div class="txt"><div id="brand-business-name">Stead</div><div>Property management</div></div>
 			</div>
 			<div class="sidebar-who">
@@ -126,6 +158,7 @@ export function renderHamburgerMenu(container, { activeHref }) {
 				</div>
 			</div>
 			<nav>${nav.map(item => navLink(item, activeHref)).join('')}</nav>
+			${themeButtonGroup()}
 			<button class="logout sidebar-logout" type="button">${icon('logout')} Log out</button>
 		</aside>
 		<div class="menu-overlay" aria-hidden="true">
@@ -139,6 +172,7 @@ export function renderHamburgerMenu(container, { activeHref }) {
 				</div>
 				<nav class="menu-list">
 					${nav.map(item => navLink(item, activeHref)).join('')}
+					${themeButtonGroup()}
 					<button class="logout menu-logout" type="button">${icon('logout')} Log out</button>
 				</nav>
 			</div>
@@ -153,6 +187,10 @@ export function renderHamburgerMenu(container, { activeHref }) {
 	const open = () => {
 		overlay.classList.add('open');
 		overlay.setAttribute('aria-hidden', 'false');
+	};
+
+	const updateThemeControls = () => {
+		syncThemeButtons(container);
 	};
 
 	// Fill in the real business name once fetched — "Stead" shows briefly
@@ -171,6 +209,14 @@ export function renderHamburgerMenu(container, { activeHref }) {
 	container.querySelectorAll('a[data-menu-link]').forEach(link => {
 		link.addEventListener('click', close);
 	});
+	container.querySelectorAll('[data-theme-pref]').forEach(button => {
+		button.addEventListener('click', () => {
+			setThemePreference(button.dataset.themePref);
+			updateThemeControls();
+		});
+	});
+	window.addEventListener('stead-theme-change', updateThemeControls, { once: false });
+	updateThemeControls();
 
 	return { open, close };
 }

@@ -1,9 +1,22 @@
-const CACHE_NAME = 'stead-shell-v3';
+const CACHE_NAME = 'stead-shell-v8';
 const APP_SHELL = [
 	'/index.html',
+	'/icons/icon.svg',
+	'/icons/icon-dark.svg',
+	'/icons/icon-light.svg',
+	'/icons/icon-maskable.svg',
+	'/icons/icon-192.png',
+	'/icons/icon-512.png',
+	'/icons/icon-maskable-512.png',
+	'/icons/apple-touch-icon.png',
 	'/src/styles/tokens.css',
 	'/src/shared/components.css',
 	'/src/app.js',
+	'/src/admin/invoices.page.js',
+	'/src/admin/settings.page.js',
+	'/src/shared/theme.js',
+	'/src/shared/logo.js',
+	'/src/shared/signature-pad.js',
 ];
 
 self.addEventListener('install', event => {

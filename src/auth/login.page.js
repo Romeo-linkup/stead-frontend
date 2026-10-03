@@ -1,14 +1,33 @@
 // src/auth/login.page.js
 import { apiFetch } from '../shared/api.js';
-import { icon } from '../shared/icons.js';
+import { logoSvg } from '../shared/logo.js';
+import { getThemePreference, setThemePreference } from '../shared/theme.js';
 import { setToken, setPreToken } from './session.js';
 import { renderRegisterName } from './register-name.page.js';
 
+function getThemeLabel(pref) {
+  if (pref === 'light') return 'Light';
+  if (pref === 'dark') return 'Dark';
+  return 'System';
+}
+
+function getNextTheme(pref) {
+  if (pref === 'system') return 'light';
+  if (pref === 'light') return 'dark';
+  return 'system';
+}
+
 export function renderLogin(root) {
+  const currentTheme = getThemePreference();
+  const themeLabel = getThemeLabel(currentTheme);
+
   root.innerHTML = `
     <div class="login-screen">
+      <div class="login-theme-toggle">
+        <button class="btn secondary sm" type="button" id="login-theme-toggle" aria-label="Change theme">${themeLabel}</button>
+      </div>
       <div class="login-card">
-        <div class="mark">${icon('key')}</div>
+        <div class="mark">${logoSvg({ size: 52 })}</div>
         <h1 class="serif">Welcome to <span id="brand-name">Stead</span></h1>
         <p class="sub">Enter the code you were given. It knows your district and your role — you'll land exactly where you need to be.</p>
         <form id="login-form">
@@ -24,6 +43,20 @@ export function renderLogin(root) {
   const form = root.querySelector('#login-form');
   const errorBox = root.querySelector('#login-error');
   const submitBtn = root.querySelector('#login-submit');
+  const themeToggle = root.querySelector('#login-theme-toggle');
+
+  const syncThemeButton = () => {
+    const pref = getThemePreference();
+    themeToggle.textContent = getThemeLabel(pref);
+  };
+
+  themeToggle.addEventListener('click', () => {
+    const next = getNextTheme(getThemePreference());
+    setThemePreference(next);
+    syncThemeButton();
+  });
+
+  window.addEventListener('stead-theme-change', syncThemeButton);
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();

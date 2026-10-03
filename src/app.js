@@ -1,5 +1,6 @@
 // src/app.js — hash-based router + route guard. Add a `case` here as
 // each new phase's pages get built.
+import { initTheme } from './shared/theme.js';
 import { renderLogin, routeToDashboard } from './auth/login.page.js';
 import { renderDistricts } from './admin/districts.page.js';
 import { renderCodes } from './admin/codes.page.js';
@@ -15,10 +16,8 @@ import { renderPay } from './tenant/pay.page.js';
 import { renderMaintenance } from './tenant/maintenance.page.js';
 import { renderLease } from './tenant/lease.page.js';
 import { renderTasks } from './provider/tasks.page.js';
-import { renderMessages as renderProviderMessages } from './provider/messages.page.js';
 import { renderNotices as renderProviderNotices } from './provider/notices.page.js';
 import { renderComplaints as renderTenantComplaints } from './tenant/complaints.page.js';
-import { renderMessages as renderTenantMessages } from './tenant/messages.page.js';
 import { renderNotices as renderTenantNotices } from './tenant/notices.page.js';
 import { renderInfo as renderTenantInfo } from './tenant/info.page.js';
 import { renderProfile as renderTenantProfile } from './tenant/profile.page.js';
@@ -28,10 +27,13 @@ import { renderOverview } from './admin/overview.page.js';
 import { renderTenants } from './admin/tenants.page.js';
 import { renderMaintenance as renderAdminMaintenance } from './admin/maintenance.page.js';
 import { renderPayments as renderAdminPayments } from './admin/payments.page.js';
+import { renderInvoices as renderAdminInvoices } from './admin/invoices.page.js';
+import { renderSettings as renderAdminSettings } from './admin/settings.page.js';
 import { renderProfile as renderAdminProfile } from './admin/profile.page.js';
 import { getCurrentUser } from './auth/session.js';
 
 const root = document.getElementById('app-root');
+initTheme();
 
 const ADMIN_ROLES = ['owner', 'admin', 'property_manager'];
 const TENANT_ROLES = ['tenant'];
@@ -103,12 +105,22 @@ async function router() {
       renderAdminPayments(root);
       break;
 
+    case hash === '#/admin/invoices':
+      if (!ADMIN_ROLES.includes(user.role)) return unauthorized();
+      renderAdminInvoices(root);
+      break;
+
+    case hash === '#/admin/settings':
+      if (!['owner', 'admin'].includes(user.role)) return unauthorized();
+      renderAdminSettings(root);
+      break;
+
     case hash === '#/admin/profile':
       if (!ADMIN_ROLES.includes(user.role)) return unauthorized();
       renderAdminProfile(root);
       break;
 
-    case hash === '#/admin/leases':
+    case hash.split('?')[0] === '#/admin/leases':
       if (!ADMIN_ROLES.includes(user.role)) return unauthorized();
       renderLeases(root);
       break;
@@ -158,11 +170,6 @@ async function router() {
       renderTenantComplaints(root);
       break;
 
-    case hash === '#/tenant/messages':
-      if (!TENANT_ROLES.includes(user.role)) return unauthorized();
-      renderTenantMessages(root);
-      break;
-
     case hash === '#/tenant/info':
       if (!TENANT_ROLES.includes(user.role)) return unauthorized();
       renderTenantInfo(root);
@@ -176,11 +183,6 @@ async function router() {
     case hash === '#/provider' || hash === '#/provider/tasks':
       if (!PROVIDER_ROLES.includes(user.role)) return unauthorized();
       renderTasks(root);
-      break;
-
-    case hash === '#/provider/messages':
-      if (!PROVIDER_ROLES.includes(user.role)) return unauthorized();
-      renderProviderMessages(root);
       break;
 
     case hash === '#/provider/info':

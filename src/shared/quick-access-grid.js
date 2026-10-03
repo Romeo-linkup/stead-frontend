@@ -3,7 +3,7 @@ import { icon } from './icons.js';
 export const QUICK_ACCESS = {
 	tenant: [
 		{ href: '#/tenant/maintenance', label: 'Report maintenance', iconName: 'wrench' },
-		{ href: '#/tenant/messages', label: 'Message admin', iconName: 'message' },
+		{ href: '#/tenant/complaints', label: 'Report a complaint', iconName: 'message' },
 		{ href: '#/tenant/pay', label: 'Rent & accounts', iconName: 'wallet' },
 		{ href: '#/tenant/lease', label: 'My lease', iconName: 'document' },
 	],

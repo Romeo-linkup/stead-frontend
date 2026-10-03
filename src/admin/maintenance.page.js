@@ -14,6 +14,7 @@ let currentTasks = [];
 let providers = [];
 let providersLoaded = false;
 let openAssignId = null;
+let invoicesByTask = new Map();
 
 export function renderMaintenance(root) {
 	const content = renderShell(root, { activeHref: '#/admin/maintenance', title: 'Maintenance' });
@@ -38,7 +39,7 @@ export function renderMaintenance(root) {
 async function loadMaintenanceData() {
 	try {
 		// apiFetch already returns parsed JSON (or throws) — no .ok/.json() needed.
-		const [maintenance, providerList] = await Promise.all([
+		const [maintenance, providerList, invoices] = await Promise.all([
 			apiFetch('/maintenance'),
 			// A failure here must not sink the task list, so it is caught on its
 			// own and surfaced later, when someone actually tries to assign.
@@ -54,7 +55,13 @@ async function loadMaintenanceData() {
 					providersLoaded = false;
 					return [];
 				}),
+			apiFetch('/invoices').catch(() => []),
 		]);
+		invoicesByTask = new Map();
+		[...invoices].sort((a, b) => timeOf(b.created_at) - timeOf(a.created_at)).forEach((invoice) => {
+			const key = String(invoice.maintenance_request_id);
+			if (!invoicesByTask.has(key)) invoicesByTask.set(key, invoice);
+		});
 		renderMaintenanceCards(maintenance);
 	} catch (err) {
 		console.error('Failed to load maintenance data:', err);
@@ -131,6 +138,10 @@ function renderMaintenanceCards(tasks) {
 		.map((task) => {
 			const status = KNOWN_STATUS[task.status] ? task.status : 'outstanding';
 			const statusBlock = renderStatusBlock(task, status);
+			const invoice = invoicesByTask.get(String(task.id));
+			const invoiceBlock = invoice
+				? `<p class="small muted" style="margin-top:8px;">Invoice ${escapeHtml(capitalise(invoice.status))} — R ${escapeHtml((Number(invoice.total) || 0).toFixed(2))} · <a href="#/admin/invoices" style="color:var(--brass-dark); font-weight:600;">view in Invoices</a></p>`
+				: '';
 			// dataset hands back a string while task.id is a number.
 			const panel = String(openAssignId) === String(task.id) ? renderAssignPanel(task) : '';
 
@@ -147,6 +158,7 @@ function renderMaintenanceCards(tasks) {
 					<p class="small muted" style="margin:6px 0 2px;">${escapeHtml(truncate(task.description, 120))}</p>
 					<p class="small muted" style="margin:0 0 6px;">${escapeHtml(where)}</p>
 					${statusBlock}
+					${invoiceBlock}
 					${panel}
 				</div>
 			`;

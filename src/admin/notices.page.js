@@ -37,18 +37,11 @@ export async function renderNotices(root) {
 		<div id="admin-notices-list"></div>
 		<b class="small" style="display:block; margin:14px 0 8px;">Move-out notices</b>
 		<div id="move-out-notices-list"></div>
-		<div class="card">
-			<b class="small">Notice period</b>
-			<label class="field-label" for="notice-period">Months of written notice required</label>
-			<input class="field" id="notice-period" type="number" min="1" max="12" step="1">
-			<button class="btn secondary sm" id="save-notice-period" type="button">Save</button>
-		</div>
 	`;
 
 	content.querySelector('#notice-form').addEventListener('submit', (event) => postNotice(event, content, isOwner));
-	content.querySelector('#save-notice-period').addEventListener('click', () => saveNoticePeriod(content));
 	if (isOwner) loadDistricts(content);
-	await Promise.all([loadNotices(content), loadMoveOutNotices(content), loadNoticePeriod(content)]);
+	await Promise.all([loadNotices(content), loadMoveOutNotices(content)]);
 }
 
 async function loadDistricts(content) {
@@ -171,32 +164,6 @@ async function acknowledgeNotice(content, button) {
 		await loadMoveOutNotices(content);
 	} catch (err) {
 		toast(err.message || 'Could not acknowledge move-out notice.');
-	} finally {
-		button.disabled = false;
-	}
-}
-
-async function loadNoticePeriod(content) {
-	try {
-		const settings = await apiFetch('/settings');
-		content.querySelector('#notice-period').value = settings.notice_period_months || 3;
-	} catch (err) {
-		toast(err.message || 'Could not load notice period.');
-	}
-}
-
-async function saveNoticePeriod(content) {
-	const input = content.querySelector('#notice-period');
-	const button = content.querySelector('#save-notice-period');
-	button.disabled = true;
-	try {
-		await apiFetch('/settings', {
-			method: 'PATCH',
-			body: { notice_period_months: Number(input.value) },
-		});
-		toast('Settings saved.');
-	} catch (err) {
-		toast(err.message || 'Could not save settings.');
 	} finally {
 		button.disabled = false;
 	}

@@ -6,6 +6,7 @@ const ICONS = {
 	wallet: '<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M16 12h3"/><path d="M3 9h18"/>',
 	wrench: '<path d="M14.7 6.3a4 4 0 0 1-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 1 5.4-5.4L21 6l-3-3z"/>',
 	document: '<path d="M7 2h7l5 5v15H7z"/><path d="M14 2v5h5"/><path d="M9 13h6"/><path d="M9 17h6"/>',
+	invoice: '<path d="M7 2h10v20l-2.5-1.5L12 22l-2.5-1.5L7 22Z"/><path d="M9.5 7h5M9.5 10.5h5M9.5 14h3"/>',
 	message: '<path d="M4 4h16v12H8l-4 4z"/>',
 	bullhorn: '<path d="M3 9v6l5 1 9 4V4L8 8l-5 1z"/><path d="M17 8v8"/><path d="M8 16v3a2 2 0 0 0 2 2h1"/>',
 	info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><path d="M12 7v.5"/>',
@@ -17,6 +18,7 @@ const ICONS = {
 	list: '<path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><circle cx="3.5" cy="6" r="1"/><circle cx="3.5" cy="12" r="1"/><circle cx="3.5" cy="18" r="1"/>',
 	logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>',
 	plus: '<path d="M12 5v14"/><path d="M5 12h14"/>',
+	sliders: '<path d="M4 6h6"/><path d="M14 6h6"/><circle cx="12" cy="6" r="2"/><path d="M4 12h10"/><path d="M18 12h2"/><circle cx="16" cy="12" r="2"/><path d="M4 18h6"/><path d="M14 18h6"/><circle cx="12" cy="18" r="2"/>',
 };
 
 export function icon(name) {

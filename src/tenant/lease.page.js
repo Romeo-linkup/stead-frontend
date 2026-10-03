@@ -21,21 +21,23 @@ export async function renderLease(root) {
     try {
       const lease = await apiFetch('/leases/mine');
 
-      if (lease.status === 'draft') {
-        container.innerHTML = '<div class="lease-message"><h2>Lease not yet sent</h2><p>Your lease has been created but not yet sent for signature. Please contact your property manager.</p></div>';
-      } else if (lease.status === 'sent') {
-        container.innerHTML = '<div id="lease-document"></div><section class="lease-signature"><h2>Sign this lease</h2><p>Draw your signature below to accept the terms above.</p><canvas id="signature-canvas" aria-label="Signature capture"></canvas><div class="lease-signature-actions"><button id="clear-signature" class="btn btn-outline" type="button">Clear</button><button id="submit-signature" class="btn btn-primary" type="button">Submit Signature</button></div><div id="signature-error" class="error-text" hidden></div></section>';
+      if (lease.status === 'sent') {
+        container.innerHTML = '<div id="lease-document"></div><section class="lease-signature"><h2>Sign this lease</h2><p>Draw your signature below to accept the terms above.</p><canvas id="signature-canvas" aria-label="Signature capture"></canvas><div class="lease-signature-actions"><button id="clear-signature" class="btn secondary" type="button">Clear</button><button id="submit-signature" class="btn brass" type="button">Submit Signature</button></div><div id="signature-error" class="error-text" hidden></div></section>';
         renderLeaseDocument(container, lease);
-        setupSignatureCanvas(container, lease.id);
+        setupSignatureCanvas(container, lease);
       } else if (lease.status === 'signed') {
         container.innerHTML = '<div id="lease-document"></div><section class="lease-signature lease-signed"><h2>Signed lease</h2><img id="stored-signature" alt="Stored signature"><p>This lease has been signed and is legally binding.</p></section>';
         renderLeaseDocument(container, lease);
         container.querySelector('#stored-signature').src = lease.signature_image_url;
       } else {
-        container.innerHTML = '<div id="lease-document"></div>';
+        container.innerHTML = `${lease.status === 'superseded' ? '<p class="small muted">This lease has been replaced by a newer one.</p>' : ''}<div id="lease-document"></div>`;
         renderLeaseDocument(container, lease);
       }
     } catch (err) {
+      if (err.message === 'No lease found for your unit.') {
+        container.innerHTML = '<div class="lease-message"><h2>No lease yet</h2><p>Your property manager will send your lease here for signature.</p></div>';
+        return;
+      }
       container.innerHTML = `<p class="error-text">${escapeHtml(err.message)}</p>`;
     }
   }
@@ -44,7 +46,7 @@ export async function renderLease(root) {
     container.querySelector('#lease-document').innerHTML = lease.rendered_html;
   }
 
-  function setupSignatureCanvas(container, leaseId) {
+  function setupSignatureCanvas(container, lease) {
     const canvas = container.querySelector('#signature-canvas');
     const ctx = canvas.getContext('2d');
     const clearBtn = container.querySelector('#clear-signature');
@@ -128,16 +130,24 @@ export async function renderLease(root) {
       }
 
       try {
+        submitBtn.disabled = true;
+        clearBtn.disabled = true;
         const dataUrl = canvas.toDataURL('image/png');
-        await apiFetch(`/leases/${leaseId}/sign`, {
+        await apiFetch(`/leases/${lease.id}/sign`, {
           method: 'POST',
-          body: { signature_data_url: dataUrl }
+          body: { signature_data_url: dataUrl, lease_updated_at: lease.updated_at }
         });
         
         await loadLease();
       } catch (err) {
         errorBox.textContent = err.message;
         errorBox.hidden = false;
+        if (err.status === 409 || err.message.toLowerCase().includes('changed after you opened it')) {
+          setTimeout(() => loadLease(), 2000);
+        }
+      } finally {
+        submitBtn.disabled = false;
+        clearBtn.disabled = false;
       }
     });
   }

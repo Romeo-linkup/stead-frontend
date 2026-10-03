@@ -13,8 +13,7 @@ export function renderOverview(root) {
 		<div class="kpi-grid" id="kpi-grid">
 			<div class="kpi"><div class="num">-</div><div class="lbl">Districts</div></div>
 			<div class="kpi"><div class="num">-</div><div class="lbl">Units occupied</div></div>
-			<div class="kpi"><div class="num">-</div><div class="lbl">Rent outstanding</div></div>
-			<div class="kpi"><div class="num">-</div><div class="lbl">Open tickets</div></div>
+			<div class="kpi" style="grid-column:1 / -1;"><div class="num">-</div><div class="lbl">Rent outstanding</div></div>
 		</div>
 		<div class="card">
 			<div class="row">
@@ -34,11 +33,10 @@ export function renderOverview(root) {
 async function loadOverviewData() {
 	try {
 		// apiFetch already returns parsed JSON (or throws on error) — no .ok/.json() needed.
-		const [districts, units, payments, maintenance, properties, alerts] = await Promise.all([
+		const [districts, units, payments, properties, alerts] = await Promise.all([
 			apiFetch('/districts'),
 			apiFetch('/units'),
 			apiFetch('/payments'),
-			apiFetch('/maintenance'),
 			apiFetch('/properties'),
 			apiFetch('/emergency'),
 		]);
@@ -52,9 +50,6 @@ async function loadOverviewData() {
 			.filter((p) => p.status === 'outstanding')
 			.reduce((sum, p) => sum + Number(p.amount), 0);
 		updateKPI(2, `R${outstanding.toLocaleString()}`);
-
-		const openTickets = maintenance.filter((m) => m.status !== 'finished').length;
-		updateKPI(3, openTickets);
 
 		// No /evaluations/average endpoint exists — average client-side from
 		// the score_percent each property already returns.
