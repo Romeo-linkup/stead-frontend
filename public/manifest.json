@@ -1,11 +1,16 @@
 {
   "name": "Stead Lynk",
   "short_name": "Stead",
-  "description": "Property management for owners, managers, providers and tenants.",
+  "description": "Property management for tenants, service providers and administrators.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "portrait-primary",
+  "lang": "en-ZA",
   "background_color": "#1C2321",
   "theme_color": "#1C2321",
+  "id": "/",
+  "categories": ["business", "productivity"],
   "icons": [
     { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },

@@ -1,108 +1,158 @@
 import { renderShell } from '../shared/shell.js';
 import { apiFetch } from '../shared/api.js';
+import { toast } from '../shared/toast.js';
+
+const scoreOf = p => p.current_score ?? p.score_percent;
 
 export async function renderProperties(root) {
 	const content = renderShell(root, { activeHref: '#/admin/properties', title: 'Properties' });
 	content.innerHTML = `
-		<div class="pagehead"><h2>Properties</h2><p>Review property condition and record the latest evaluation.</p></div>
-		<div id="properties-list">Loading...</div>
-		<div id="properties-average"></div>
+		<div class="pagehead"><h2>Properties</h2><p>Evaluate every property. District and overall scores are calculated automatically once all of their properties have been evaluated.</p></div>
+		<div id="properties-content">Loading...</div>
 	`;
 
-	async function loadProperties() {
-		const list = content.querySelector('#properties-list');
-		const averageBox = content.querySelector('#properties-average');
-		try {
-			const properties = await apiFetch('/properties');
-			if (!properties.length) {
-				list.innerHTML = '<div class="card"><p style="color:var(--slate);margin:0;">No properties yet.</p></div>';
-				averageBox.innerHTML = '';
-				return;
-			}
+	await loadPropertiesData(content);
+}
 
-			list.innerHTML = properties.map(property => {
-				const score = property.current_score === null || property.current_score === undefined
-					? null
-					: Number(property.current_score);
-				const scoreLabel = score === null ? 'Not evaluated' : `${score.toFixed(1)}%`;
-				const scoreWidth = score === null ? 0 : Math.max(0, Math.min(100, score));
-				return `
-					<article class="card">
-						<div style="display:flex;justify-content:space-between;gap:14px;align-items:flex-start;flex-wrap:wrap;">
+async function loadPropertiesData(content) {
+	const container = content.querySelector('#properties-content');
+	try {
+		const [properties, summary] = await Promise.all([
+			apiFetch('/properties'),
+			apiFetch('/evaluations/summary'),
+		]);
+
+		if (!properties.length) {
+			container.innerHTML = '<div class="card"><p class="small muted">No properties yet.</p></div>';
+			return;
+		}
+
+		const portfolio = summary.portfolio;
+		const overallCard = `
+			<div class="card">
+				<div class="row">
+					<b class="small">Overall condition</b>
+					<span class="small" style="font-weight:700;">${portfolio.complete ? Math.round(portfolio.average_score) + '%' : 'Pending'}</span>
+				</div>
+				<div class="score-bar"><div style="width:${portfolio.complete ? portfolio.average_score : 0}%;"></div></div>
+				<p class="small muted" style="margin:8px 0 0;">${portfolio.complete ? 'Average of all ' + portfolio.property_count + ' properties' : portfolio.evaluated_count + ' of ' + portfolio.property_count + ' properties evaluated'}</p>
+			</div>
+		`;
+
+		const propertiesByDistrict = groupBy(properties, 'district_id');
+		const districts = summary.districts;
+		let html = overallCard;
+
+		districts.sort((a, b) => a.district_name.localeCompare(b.district_name)).forEach(district => {
+			const districtProps = propertiesByDistrict[district.district_id] || [];
+			if (!districtProps.length) return;
+
+			districtProps.sort((a, b) => {
+				const aScore = scoreOf(a);
+				const bScore = scoreOf(b);
+				if (aScore === null && bScore !== null) return -1;
+				if (aScore !== null && bScore === null) return 1;
+				return a.name.localeCompare(b.name);
+			});
+
+			html += `
+				<div class="row" style="margin:18px 0 8px;">
+					<b>${escapeHtml(district.district_name)}</b>
+					<span class="small muted">${district.evaluated_count} of ${district.property_count} evaluated</span>
+				</div>
+				<div class="card">
+					<div class="row">
+						<b class="small">District score</b>
+						<span class="small" style="font-weight:700;">${district.complete ? Math.round(district.average_score) + '%' : 'Pending'}</span>
+					</div>
+					<div class="score-bar"><div style="width:${district.complete ? district.average_score : 0}%;"></div></div>
+					<p class="small muted" style="margin:8px 0 0;">${district.complete ? 'Average of ' + district.property_count + ' properties' : 'Evaluate the remaining ' + (district.property_count - district.evaluated_count) + ' to see the district score'}</p>
+				</div>
+			`;
+
+			districtProps.forEach(property => {
+				const score = scoreOf(property) !== null ? Number(scoreOf(property)) : null;
+				const scoreText = score !== null ? '<b>' + score.toFixed(1) + '%</b>' : '<span class="badge outstanding">Needs evaluation</span>';
+				const scoreWidth = score !== null ? Math.max(0, Math.min(100, score)) : 0;
+				const scoreDate = property.score_created_at ? new Date(property.score_created_at).toLocaleDateString('en-ZA') : '';
+				const buttonText = score !== null ? 'Re-evaluate' : 'Evaluate';
+
+				html += `
+					<div class="card">
+						<div class="row">
 							<div>
-								<h3 class="serif" style="margin:0 0 4px;">${escapeHtml(property.name)}</h3>
-								<p style="margin:0;color:var(--slate);font-size:13px;">${escapeHtml(property.address || 'No address recorded')}</p>
+								<b class="serif">${escapeHtml(property.name)}</b>
+								<div class="small muted">${escapeHtml(property.address || 'No address recorded')} · ${property.unit_count} unit(s)</div>
 							</div>
-							<strong style="font-size:18px;color:${score === null ? 'var(--slate)' : 'var(--brass-dark)'};">${scoreLabel}</strong>
+							<span>${scoreText}</span>
 						</div>
-						<div style="height:9px;background:var(--paper2);border-radius:999px;overflow:hidden;margin:14px 0 16px;">
-							<div style="height:100%;width:${scoreWidth}%;background:var(--brass);transition:width .2s ease;"></div>
-						</div>
-						<form class="evaluation-form" data-property-id="${property.id}" style="border-top:1px solid var(--line);padding-top:14px;">
-							<div style="display:grid;grid-template-columns:minmax(120px,160px) 1fr auto;gap:10px;align-items:end;">
-								<div class="field" style="margin:0;"><label>Score (%)</label><input name="score_percent" type="number" min="0" max="100" step="0.01" required placeholder="0-100"></div>
-								<div class="field" style="margin:0;"><label>Notes</label><input name="notes" type="text" placeholder="Optional evaluation notes"></div>
-								<button class="btn btn-primary" type="submit">Evaluate</button>
+						<div class="score-bar" style="background:var(--brass);"><div style="width:${scoreWidth}%;"></div></div>
+						${scoreDate ? '<p class="small muted">Last evaluated ' + escapeHtml(scoreDate) + '</p>' : ''}
+						<form class="evaluation-form" data-property-id="${property.id}">
+							<div class="grid2">
+								<div>
+									<label class="field-label">Score (%)</label>
+									<input class="field" type="number" min="0" max="100" step="0.01" required value="${score !== null ? score : ''}">
+								</div>
+								<div>
+									<label class="field-label">Notes</label>
+									<input class="field" type="text" maxlength="500">
+								</div>
 							</div>
-							<div class="error-text" data-error hidden></div>
+							<button class="btn brass" type="submit">${buttonText}</button>
 						</form>
-					</article>
-				`;
-			}).join('');
-
-			const evaluated = properties
-				.map(p => (p.current_score === null || p.current_score === undefined ? null : Number(p.current_score)))
-				.filter(score => score !== null);
-
-			if (evaluated.length) {
-				const average = evaluated.reduce((sum, s) => sum + s, 0) / evaluated.length;
-				const allEvaluated = evaluated.length === properties.length;
-				averageBox.innerHTML = `
-					<div class="card" style="margin-top:4px;">
-						<div style="display:flex;justify-content:space-between;align-items:baseline;">
-							<b class="small">${allEvaluated ? 'Overall average' : `Average (${evaluated.length} of ${properties.length} evaluated)`}</b>
-							<strong style="font-size:20px;color:var(--brass-dark);">${average.toFixed(1)}%</strong>
-						</div>
-						<div style="height:9px;background:var(--paper2);border-radius:999px;overflow:hidden;margin-top:10px;">
-							<div style="height:100%;width:${Math.max(0, Math.min(100, average))}%;background:var(--forest);"></div>
-						</div>
 					</div>
 				`;
-			} else {
-				averageBox.innerHTML = '';
-			}
-		} catch (err) {
-			list.innerHTML = `<div class="card"><p class="error-text">${escapeHtml(err.message)}</p></div>`;
-			averageBox.innerHTML = '';
-		}
-	}
-
-	content.addEventListener('submit', async event => {
-		const form = event.target.closest('.evaluation-form');
-		if (!form) return;
-		event.preventDefault();
-		const error = form.querySelector('[data-error]');
-		const button = form.querySelector('button');
-		error.hidden = true;
-		button.disabled = true;
-		try {
-			await apiFetch('/evaluations', {
-				method: 'POST',
-				body: {
-					property_id: Number(form.dataset.propertyId),
-					score_percent: Number(form.score_percent.value),
-					notes: form.notes.value.trim(),
-				},
 			});
-			await loadProperties();
-		} catch (err) {
-			error.textContent = err.message;
-			error.hidden = false;
-			button.disabled = false;
-		}
-	});
+		});
 
-	await loadProperties();
+		container.innerHTML = html;
+
+		container.querySelectorAll('.evaluation-form').forEach(form => {
+			form.addEventListener('submit', async event => {
+				event.preventDefault();
+				const input = form.querySelector('input[type="number"]');
+				const button = form.querySelector('button');
+				const score = Number(input.value);
+
+				if (!Number.isFinite(score) || score < 0 || score > 100) {
+					toast('Enter a score between 0 and 100.');
+					return;
+				}
+
+				button.disabled = true;
+				const scrollY = window.scrollY;
+
+				try {
+					await apiFetch('/evaluations', {
+						method: 'POST',
+						body: {
+							property_id: Number(form.dataset.propertyId),
+							score_percent: score,
+							notes: form.querySelector('input[type="text"]').value.trim(),
+						},
+					});
+					toast('Evaluation saved.');
+					await loadPropertiesData(content);
+					window.scrollTo(0, scrollY);
+				} catch (err) {
+					toast(err.message || 'Could not save evaluation.');
+					button.disabled = false;
+				}
+			});
+		});
+	} catch (err) {
+		container.innerHTML = `<div class="card"><p class="error-text">${escapeHtml(err.message)}</p></div>`;
+	}
+}
+
+function groupBy(array, key) {
+	return array.reduce((result, item) => {
+		const group = item[key];
+		if (!result[group]) result[group] = [];
+		result[group].push(item);
+		return result;
+	}, {});
 }
 
 function escapeHtml(value) {

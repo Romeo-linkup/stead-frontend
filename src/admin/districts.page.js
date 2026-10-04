@@ -33,7 +33,7 @@ export async function renderDistricts(root) {
         return;
       }
       listEl.innerHTML = `
-        <table class="list">
+        <div class="table-wrap"><table class="list">
           <thead><tr><th>Name</th><th>Added</th><th></th></tr></thead>
           <tbody>
             ${districts
@@ -42,7 +42,7 @@ export async function renderDistricts(root) {
               )
               .join('')}
           </tbody>
-        </table>
+        </table></div>
       `;
 
       listEl.querySelectorAll('.delete-district-btn').forEach(btn => {

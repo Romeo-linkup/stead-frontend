@@ -21,6 +21,7 @@ export function renderOverview(root) {
 				<span class="small" style="font-weight:700;" id="avg-condition">-</span>
 			</div>
 			<div class="score-bar"><div id="condition-bar" style="width:0%;"></div></div>
+			<p class="small muted" id="condition-note" style="margin:8px 0 0;"></p>
 		</div>
 		<div id="emergency-alerts"></div>
 		<div id="quick-access-slot"></div>
@@ -33,11 +34,11 @@ export function renderOverview(root) {
 async function loadOverviewData() {
 	try {
 		// apiFetch already returns parsed JSON (or throws on error) — no .ok/.json() needed.
-		const [districts, units, payments, properties, alerts] = await Promise.all([
+		const [districts, units, payments, summary, alerts] = await Promise.all([
 			apiFetch('/districts'),
 			apiFetch('/units'),
 			apiFetch('/payments'),
-			apiFetch('/properties'),
+			apiFetch('/evaluations/summary'),
 			apiFetch('/emergency'),
 		]);
 
@@ -51,14 +52,13 @@ async function loadOverviewData() {
 			.reduce((sum, p) => sum + Number(p.amount), 0);
 		updateKPI(2, `R${outstanding.toLocaleString()}`);
 
-		// No /evaluations/average endpoint exists — average client-side from
-		// the score_percent each property already returns.
-		const scored = properties.filter((p) => p.score_percent !== null && p.score_percent !== undefined);
-		const avgScore = scored.length
-			? scored.reduce((sum, p) => sum + Number(p.score_percent), 0) / scored.length
-			: 0;
-		document.getElementById('avg-condition').textContent = scored.length ? `${Math.round(avgScore)}%` : '—';
+		const portfolio = summary.portfolio;
+		const avgScore = portfolio.average_score || 0;
+		document.getElementById('avg-condition').textContent = portfolio.complete ? `${Math.round(avgScore)}%` : '—';
 		document.getElementById('condition-bar').style.width = `${avgScore}%`;
+		document.getElementById('condition-note').textContent = portfolio.complete
+			? 'Average of all ' + portfolio.property_count + ' properties'
+			: portfolio.evaluated_count + ' of ' + portfolio.property_count + ' properties evaluated';
 
 		const unacknowledged = alerts.filter((a) => a.status === 'unacknowledged').slice(0, 1);
 		renderEmergencyAlerts(unacknowledged);

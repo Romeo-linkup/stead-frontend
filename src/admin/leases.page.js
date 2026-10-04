@@ -107,7 +107,7 @@ async function renderLeaseList(content) {
     }
 
     tableState.innerHTML = `
-      <table class="simple">
+      <div class="table-wrap"><table class="simple">
         <thead><tr><th>Unit</th><th>Lessee</th><th>Status</th><th>Term</th><th>Actions</th></tr></thead>
         <tbody>${leases.map((lease) => `<tr>
           <td>${escapeHtml(lease.property_name)} · ${escapeHtml(lease.unit_number)}</td>
@@ -116,7 +116,7 @@ async function renderLeaseList(content) {
           <td>${escapeHtml(formatDate(lease.start_date))} - ${escapeHtml(formatDate(lease.end_date))}</td>
           <td><div class="row lease-actions">${leaseActions(lease)}</div></td>
         </tr>`).join('')}</tbody>
-      </table>
+      </table></div>
     `;
     tableState.querySelectorAll('button[data-action]').forEach((button) => {
       button.addEventListener('click', () => handleListAction(button, tableState));

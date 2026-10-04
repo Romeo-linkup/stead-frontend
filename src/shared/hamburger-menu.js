@@ -3,6 +3,7 @@ import { icon } from './icons.js';
 import { apiFetch } from './api.js';
 import { getThemePreference, setThemePreference } from './theme.js';
 import { logoSvg } from './logo.js';
+import { canInstall, promptInstall, isStandalone, isIos } from './pwa.js';
 
 // Cached across page navigations within a session, so every renderShell()
 // call doesn't refetch the business name on every hash change.
@@ -124,6 +125,24 @@ function themeButtonGroup() {
 	</div>`;
 }
 
+function installBlock() {
+	if (isStandalone()) return '';
+	const showInstall = canInstall() || isIos();
+	if (!showInstall) return '';
+
+	if (canInstall()) {
+		return `<div class="install-block">
+			<div class="appearance-label">Install app</div>
+			<button type="button" class="btn brass sm" id="install-btn">Install</button>
+		</div>`;
+	}
+
+	return `<div class="install-block">
+		<div class="appearance-label">Install app</div>
+		<p class="small muted">On iPhone: tap the Share button, then Add to Home Screen.</p>
+	</div>`;
+}
+
 function syncThemeButtons(container) {
 	const pref = getThemePreference();
 	container.querySelectorAll('[data-theme-pref]').forEach(button => {
@@ -158,6 +177,7 @@ export function renderHamburgerMenu(container, { activeHref }) {
 				</div>
 			</div>
 			<nav>${nav.map(item => navLink(item, activeHref)).join('')}</nav>
+			${installBlock()}
 			${themeButtonGroup()}
 			<button class="logout sidebar-logout" type="button">${icon('logout')} Log out</button>
 		</aside>
@@ -172,6 +192,7 @@ export function renderHamburgerMenu(container, { activeHref }) {
 				</div>
 				<nav class="menu-list">
 					${nav.map(item => navLink(item, activeHref)).join('')}
+					${installBlock()}
 					${themeButtonGroup()}
 					<button class="logout menu-logout" type="button">${icon('logout')} Log out</button>
 				</nav>
@@ -215,7 +236,42 @@ export function renderHamburgerMenu(container, { activeHref }) {
 			updateThemeControls();
 		});
 	});
+
+	const installBtn = container.querySelector('#install-btn');
+	if (installBtn) {
+		installBtn.addEventListener('click', () => {
+			promptInstall();
+		});
+	}
+
 	window.addEventListener('stead-theme-change', updateThemeControls, { once: false });
+	window.addEventListener('stead-install-available', () => {
+		const newBlock = installBlock();
+		const sidebarInstall = container.querySelector('.sidebar .install-block');
+		const menuInstall = container.querySelector('.menu-panel .install-block');
+		if (sidebarInstall) sidebarInstall.outerHTML = newBlock;
+		if (menuInstall) menuInstall.outerHTML = newBlock;
+		const newInstallBtn = container.querySelector('#install-btn');
+		if (newInstallBtn) {
+			newInstallBtn.addEventListener('click', () => {
+				promptInstall();
+			});
+		}
+	});
+	window.addEventListener('stead-install-changed', () => {
+		const newBlock = installBlock();
+		const sidebarInstall = container.querySelector('.sidebar .install-block');
+		const menuInstall = container.querySelector('.menu-panel .install-block');
+		if (sidebarInstall) sidebarInstall.outerHTML = newBlock;
+		if (menuInstall) menuInstall.outerHTML = newBlock;
+		const newInstallBtn = container.querySelector('#install-btn');
+		if (newInstallBtn) {
+			newInstallBtn.addEventListener('click', () => {
+				promptInstall();
+			});
+		}
+	});
+
 	updateThemeControls();
 
 	return { open, close };

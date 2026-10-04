@@ -1,6 +1,7 @@
 // src/app.js — hash-based router + route guard. Add a `case` here as
 // each new phase's pages get built.
 import { initTheme } from './shared/theme.js';
+import { initPwa } from './shared/pwa.js';
 import { renderLogin, routeToDashboard } from './auth/login.page.js';
 import { renderDistricts } from './admin/districts.page.js';
 import { renderCodes } from './admin/codes.page.js';
@@ -34,6 +35,7 @@ import { getCurrentUser } from './auth/session.js';
 
 const root = document.getElementById('app-root');
 initTheme();
+initPwa();
 
 const ADMIN_ROLES = ['owner', 'admin', 'property_manager'];
 const TENANT_ROLES = ['tenant'];
@@ -125,7 +127,7 @@ async function router() {
       renderLeases(root);
       break;
 
-    case hash === '#/admin/complaints':
+    case hash.split('?')[0] === '#/admin/complaints':
       if (!ADMIN_ROLES.includes(user.role)) return unauthorized();
       renderAdminComplaints(root);
       break;
