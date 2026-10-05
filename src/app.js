@@ -3,6 +3,7 @@
 import { initTheme } from './shared/theme.js';
 import { initPwa } from './shared/pwa.js';
 import { renderLogin, routeToDashboard } from './auth/login.page.js';
+import { renderSignup } from './auth/signup.page.js';
 import { renderDistricts } from './admin/districts.page.js';
 import { renderCodes } from './admin/codes.page.js';
 import { renderProperties } from './admin/properties.page.js';
@@ -41,9 +42,9 @@ const ADMIN_ROLES = ['owner', 'admin', 'property_manager'];
 const TENANT_ROLES = ['tenant'];
 const PROVIDER_ROLES = ['service_provider'];
 
-// '#/' (no hash), the login route, and the bare role paths all mean "take me to
+// '#/' (no hash), the login route, the signup route, and the bare role paths all mean "take me to
 // where this role lands" — for a signed-in user. Keeps old links/bookmarks working.
-const ENTRY_HASHES = ['#/', '#/login', '#/tenant', '#/admin', '#/provider'];
+const ENTRY_HASHES = ['#/', '#/login', '#/signup', '#/tenant', '#/admin', '#/provider'];
 
 function isKnownRole(user) {
   return ADMIN_ROLES.includes(user.role) || TENANT_ROLES.includes(user.role) || PROVIDER_ROLES.includes(user.role);
@@ -54,11 +55,15 @@ async function router() {
   const user = getCurrentUser();
 
   if (!user) {
-    if (hash !== '#/login' && hash !== '#/') {
+    if (hash !== '#/login' && hash !== '#/signup' && hash !== '#/') {
       window.location.hash = '#/login';
       return;
     }
-    renderLogin(root);
+    if (hash === '#/signup') {
+      renderSignup(root);
+    } else {
+      renderLogin(root);
+    }
     return;
   }
 
@@ -70,6 +75,10 @@ async function router() {
   switch (true) {
     case hash === '#/login':
       renderLogin(root);
+      break;
+
+    case hash === '#/signup':
+      window.location.hash = '#/login';
       break;
 
     case hash === '#/admin/districts':
