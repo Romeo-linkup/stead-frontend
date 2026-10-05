@@ -92,6 +92,14 @@ function renderPaymentsTable(payments, units) {
 
 			const badge = STATUS_BADGE[payment.status] || { cls: payment.status, label: String(payment.status || '') };
 
+			// Proof-of-payment receipts the tenant has uploaded.
+			const receipts = Array.isArray(payment.receipts) ? payment.receipts : [];
+			const receiptCount = Number(payment.receipt_count) || receipts.length;
+			const proofBlock = receiptCount > 0
+				? `<div style="margin-top:6px;"><span class="badge finished">Proof uploaded (${receiptCount})</span></div>`
+					+ `<div class="small" style="margin-top:4px;">${receipts.map((r) => `<a href="${escapeAttr(r.url)}" target="_blank" rel="noopener" style="color:var(--brass-dark); overflow-wrap:anywhere;">View receipt</a>`).join('<br>')}</div>`
+				: '<div class="small muted" style="margin-top:6px;">No proof uploaded</div>';
+
 			// No undo endpoint exists on the backend, so a paid row is a status,
 			// not a button. Every unpaid row — outstanding or pending — keeps
 			// the manual button, because cash/EFT is confirmed by hand.
@@ -106,7 +114,7 @@ function renderPaymentsTable(payments, units) {
 				<tr>
 					<td>${escapeHtml(unitNumber)}</td>
 					<td>${escapeHtml(tenant)}</td>
-					<td>${escapeHtml(`${capitalise(payment.type)} · ${formatMoney(payment.amount)}`)}<div class="small muted">Due ${escapeHtml(formatDueDate(payment.due_date, 'short'))}</div></td>
+					<td>${escapeHtml(`${capitalise(payment.type)} · ${formatMoney(payment.amount)}`)}<div class="small muted">Due ${escapeHtml(formatDueDate(payment.due_date, 'short'))}</div>${proofBlock}</td>
 					<td><span class="badge ${badge.cls}">${escapeHtml(badge.label)}</span></td>
 					<td>${actionCell}</td>
 				</tr>
@@ -166,6 +174,15 @@ function updateKPI(index, value) {
 function setKpiLabel(index, text) {
 	const cell = document.getElementById('kpi-grid')?.children[index]?.querySelector('.lbl');
 	if (cell) cell.textContent = text;
+}
+
+function escapeAttr(value) {
+	return String(value == null ? '' : value)
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/'/g, '&#39;');
 }
 
 function escapeHtml(text) {

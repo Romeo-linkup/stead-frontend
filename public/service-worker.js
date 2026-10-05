@@ -1,5 +1,5 @@
 // Bump this constant by hand on each deploy (e.g., stead-v1, stead-v2, ...)
-const VERSION = 'stead-v2';
+const VERSION = 'stead-v5';
 const SHELL_CACHE = `${VERSION}-shell`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 
@@ -12,6 +12,8 @@ const PRECACHE_ASSETS = [
 	'/icons/icon-192.png',
 	'/src/app.js',
 	'/src/auth/signup.page.js',
+	'/src/shared/units.js',
+	'/src/shared/assets.js',
 	'/src/styles/tokens.css',
 	'/src/shared/components.css',
 ];

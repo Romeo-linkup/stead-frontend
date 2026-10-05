@@ -289,3 +289,39 @@ table.simple td { padding: 9px 5px; border-bottom: 1px solid var(--line); vertic
 .offline-bar { position:fixed; top:0; left:0; right:0; z-index:95; background:var(--rust); color:#fff; text-align:center; font-size:12.5px; padding:calc(6px + env(safe-area-inset-top, 0px)) 10px 6px; }
 .install-block { margin-top:10px; }
 @media (pointer: coarse) { .btn { min-height:44px; } .btn.sm { min-height:40px; padding-left:14px; padding-right:14px; } input.field, select.field, textarea.field { min-height:44px; font-size:16px; } .menu-list a, .sidebar nav a { min-height:44px; } .iconbtn { min-width:44px; min-height:44px; } }
+
+/* ===== assets tab switcher ===== */
+.tabbar { display: flex; gap: 4px; border-bottom: 1px solid var(--line); }
+.tab { padding: 9px 14px; border: none; background: transparent; font-family: inherit; font-size: 13px; font-weight: 600; color: var(--slate); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tab:hover { color: var(--ink); }
+.tab.active { color: var(--brass-dark); border-bottom-color: var(--brass); }
+
+/* ===== assets register tables ===== */
+.area-row td { background: var(--paper2); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--slate); }
+
+/* ===== printable asset report ===== */
+.asset-report { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 24px; }
+.report-head { text-align: center; margin-bottom: 18px; }
+.report-business { font-family: 'Newsreader', serif; font-size: 20px; font-weight: 700; }
+.report-subtitle { font-family: 'Newsreader', serif; font-size: 16px; font-weight: 600; margin-top: 4px; }
+.report-flat { font-size: 13px; margin-top: 8px; }
+.report-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.report-table th, .report-table td { border: 1px solid var(--ink); padding: 8px; text-align: left; vertical-align: top; }
+.report-table th { font-weight: 600; background: var(--paper2); }
+.report-table td { height: 44px; }
+.report-table .report-empty { text-align: center; color: var(--slate); height: auto; }
+.report-signature { display: flex; flex-wrap: wrap; gap: 28px; margin-top: 30px; font-size: 13px; }
+.report-actions { margin-top: 18px; }
+
+@media print {
+  .sidebar, .topbar, .bottom-nav, .menu-overlay, .toast, .pwa-banner, .offline-bar, .btn, .tabbar, .report-actions { display: none !important; }
+  html, body { background: #fff !important; color: #000 !important; }
+  .main { margin-left: 0 !important; }
+  .content { padding: 0 !important; max-width: none !important; width: 100% !important; }
+  .asset-report { border: none !important; border-radius: 0 !important; padding: 0 !important; background: #fff !important; }
+  .report-business, .report-subtitle, .report-flat, .report-signature { color: #000 !important; }
+  .report-table th, .report-table td { border: 1px solid #000 !important; color: #000 !important; }
+  .report-table th { background: #fff !important; }
+  .report-table td { height: 44px; }
+  .report-table tr { page-break-inside: avoid; }
+}

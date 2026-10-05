@@ -106,7 +106,7 @@ async function router() {
       renderTenants(root);
       break;
 
-    case hash === '#/admin/maintenance':
+    case hash.split('?')[0] === '#/admin/maintenance':
       if (!ADMIN_ROLES.includes(user.role)) return unauthorized();
       renderAdminMaintenance(root);
       break;
@@ -166,7 +166,7 @@ async function router() {
       renderPay(root);
       break;
 
-    case hash === '#/tenant/maintenance':
+    case hash.split('?')[0] === '#/tenant/maintenance':
       if (!TENANT_ROLES.includes(user.role)) return unauthorized();
       renderMaintenance(root);
       break;

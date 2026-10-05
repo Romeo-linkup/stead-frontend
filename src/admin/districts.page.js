@@ -1,11 +1,15 @@
 // src/admin/districts.page.js
 import { renderShell } from '../shared/shell.js';
 import { apiFetch } from '../shared/api.js';
+import { getCurrentUser } from '../auth/session.js';
 
 export async function renderDistricts(root) {
   const content = renderShell(root, { activeHref: '#/admin/districts', title: 'Districts' });
+  const user = getCurrentUser();
+  const isOwner = user?.role === 'owner';
 
   content.innerHTML = `
+    ${isOwner ? `
     <div class="card">
       <h3 class="serif" style="margin-top:0;">Add a district</h3>
       <form id="new-district-form">
@@ -17,6 +21,7 @@ export async function renderDistricts(root) {
         <button class="btn btn-primary" type="submit">Add district</button>
       </form>
     </div>
+    ` : ''}
     <div class="card">
       <h3 class="serif" style="margin-top:0;">All districts</h3>
       <div id="districts-error" class="error-text" style="display:none;"></div>
@@ -34,11 +39,11 @@ export async function renderDistricts(root) {
       }
       listEl.innerHTML = `
         <div class="table-wrap"><table class="list">
-          <thead><tr><th>Name</th><th>Added</th><th></th></tr></thead>
+          <thead><tr><th>Name</th><th>Added</th>${isOwner ? '<th></th>' : ''}</tr></thead>
           <tbody>
             ${districts
               .map(
-                (d) => `<tr><td>${escapeHtml(d.name)}</td><td>${new Date(d.created_at).toLocaleDateString()}</td><td><button class="btn btn-danger btn-sm delete-district-btn" data-id="${d.id}" data-name="${escapeAttr(d.name)}">Delete</button></td></tr>`
+                (d) => `<tr><td>${escapeHtml(d.name)}</td><td>${new Date(d.created_at).toLocaleDateString()}</td>${isOwner ? `<td><button class="btn btn-danger btn-sm delete-district-btn" data-id="${d.id}" data-name="${escapeAttr(d.name)}">Delete</button></td>` : ''}</tr>`
               )
               .join('')}
           </tbody>
@@ -72,20 +77,23 @@ export async function renderDistricts(root) {
     }
   }
 
-  content.querySelector('#new-district-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const form = e.target;
-    const errorBox = content.querySelector('#district-error');
-    errorBox.style.display = 'none';
-    try {
-      await apiFetch('/districts', { method: 'POST', body: { name: form.name.value.trim() } });
-      form.reset();
-      await loadDistricts();
-    } catch (err) {
-      errorBox.textContent = err.message;
-      errorBox.style.display = 'block';
-    }
-  });
+  const newDistrictForm = content.querySelector('#new-district-form');
+  if (newDistrictForm) {
+    newDistrictForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const errorBox = content.querySelector('#district-error');
+      errorBox.style.display = 'none';
+      try {
+        await apiFetch('/districts', { method: 'POST', body: { name: form.name.value.trim() } });
+        form.reset();
+        await loadDistricts();
+      } catch (err) {
+        errorBox.textContent = err.message;
+        errorBox.style.display = 'block';
+      }
+    });
+  }
 
   loadDistricts();
 }

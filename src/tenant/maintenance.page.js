@@ -4,6 +4,16 @@ import { apiFetch } from '../shared/api.js';
 import { getCurrentUser } from '../auth/session.js';
 import { toast } from '../shared/toast.js';
 import { formatDueDate } from '../shared/format.js';
+import {
+  getHashQuery,
+  renderTabBar,
+  wireTabBar,
+  groupByArea,
+  conditionBadgeHtml,
+  renderAssetReport,
+  escapeHtml,
+  escapeAttr,
+} from '../shared/assets.js';
 
 const CATEGORIES = ['Plumbing', 'Electrical', 'Appliance', 'Structural', 'Other'];
 
@@ -13,33 +23,49 @@ let requests = [];
 export async function renderMaintenance(root) {
 	const content = renderShell(root, { activeHref: '#/tenant/maintenance', title: 'Maintenance' });
 	const user = getCurrentUser();
+	const query = getHashQuery();
+	const tab = query.tab || 'requests';
+
+	// Printable "Building & Assets List" report mode.
+	if (query.print === '1' && tab === 'assets') {
+		await renderAssetReport(content, query.unit_id, '#/tenant/maintenance');
+		return;
+	}
 
 	content.innerHTML = `
 		<div class="pagehead">
 			<h2>Maintenance</h2>
 			<p>Report an issue or track a request</p>
 		</div>
-		<button class="btn secondary block" id="new-request-btn" style="margin-bottom:14px;">+ New maintenance request</button>
-		<div class="card" id="request-form-card" hidden>
-			<form id="maintenance-form">
-				<label class="field-label">Category</label>
-				<select class="field" id="category" name="category" required>
-					${CATEGORIES.map((c) => `<option value="${c}">${c}</option>`).join('')}
-				</select>
-				<label class="field-label">Description</label>
-				<textarea class="field" id="description" name="description" rows="4" required placeholder="Describe the issue..."></textarea>
-				<label class="field-label">Photo (optional)</label>
-				<input class="field" id="photo" name="photo" type="file" accept="image/jpeg,image/png,image/webp">
-				<p class="small muted" style="margin:-4px 0 10px;">JPG, PNG or WEBP, max 5MB</p>
-				<div id="form-error" class="error-text" style="display:none;"></div>
-				<div class="row" style="gap:8px;">
-					<button class="btn brass block" type="submit">Submit request</button>
-					<button class="btn secondary block" type="button" id="cancel-request">Cancel</button>
-				</div>
-			</form>
+		${renderTabBar(tab, '#/tenant/maintenance')}
+		<div id="requests-pane"${tab === 'assets' ? ' hidden' : ''}>
+			<button class="btn secondary block" id="new-request-btn" style="margin-bottom:14px;">+ New maintenance request</button>
+			<div class="card" id="request-form-card" hidden>
+				<form id="maintenance-form">
+					<label class="field-label">Category</label>
+					<select class="field" id="category" name="category" required>
+						${CATEGORIES.map((c) => `<option value="${c}">${c}</option>`).join('')}
+					</select>
+					<label class="field-label">Description</label>
+					<textarea class="field" id="description" name="description" rows="4" required placeholder="Describe the issue..."></textarea>
+					<label class="field-label">Photo (optional)</label>
+					<input class="field" id="photo" name="photo" type="file" accept="image/jpeg,image/png,image/webp">
+					<p class="small muted" style="margin:-4px 0 10px;">JPG, PNG or WEBP, max 5MB</p>
+					<div id="form-error" class="error-text" style="display:none;"></div>
+					<div class="row" style="gap:8px;">
+						<button class="btn brass block" type="submit">Submit request</button>
+						<button class="btn secondary block" type="button" id="cancel-request">Cancel</button>
+					</div>
+				</form>
+			</div>
+			<div id="requests-list"><p class="small muted">Loading...</p></div>
 		</div>
-		<div id="requests-list"><p class="small muted">Loading...</p></div>
+		<div id="assets-pane"${tab === 'assets' ? '' : ' hidden'}>
+			<div id="assets-content"><p class="small muted">Loading...</p></div>
+		</div>
 	`;
+
+	wireTabBar(content);
 
 	try {
 		const [unitData, maintenance] = await Promise.all([
@@ -55,14 +81,89 @@ export async function renderMaintenance(root) {
 		if (!tenantUnit) {
 			document.getElementById('new-request-btn').hidden = true;
 			document.getElementById('requests-list').innerHTML = '<p class="small muted">No unit assigned.</p>';
-			return;
+		} else {
+			renderRequests();
+			wireEvents();
 		}
 
-		renderRequests();
-		wireEvents();
+		if (tab === 'assets') {
+			await loadAssetsPane(tenantUnit);
+		}
 	} catch (err) {
 		console.error('Failed to load maintenance data:', err);
 		document.getElementById('requests-list').innerHTML = `<p class="error-text">${escapeHtml(err.message)}</p>`;
+	}
+}
+
+// Read-only assets register for the tenant's own unit.
+async function loadAssetsPane(unit) {
+	const container = document.getElementById('assets-content');
+	if (!container) return;
+
+	if (!unit) {
+		container.innerHTML = '<p class="small muted">No unit assigned.</p>';
+		return;
+	}
+
+	try {
+		// No unit_id: the backend resolves the tenant's own unit.
+		const data = await apiFetch('/assets');
+		const assets = Array.isArray(data.assets) ? data.assets : [];
+		const reportUnit = data.unit || unit;
+
+		const printButton = `
+			<div class="row" style="margin-bottom:10px;">
+				<b class="small">Building &amp; assets list</b>
+				<button class="btn secondary sm" id="print-report-btn" type="button">Print report</button>
+			</div>
+		`;
+
+		if (assets.length === 0) {
+			container.innerHTML = `
+				${printButton}
+				<div class="card"><p class="small muted">No assets have been recorded for your unit yet.</p></div>
+			`;
+		} else {
+			const groups = groupByArea(assets);
+			const rowsHtml = groups
+				.map((group) => {
+					const areaRow = `<tr class="area-row"><td colspan="3"><b>${escapeHtml(group.area)}</b></td></tr>`;
+					const assetRows = group.assets
+						.map(
+							(a) => `
+							<tr>
+								<td>${escapeHtml(a.item)}</td>
+								<td>${conditionBadgeHtml(a.condition)}</td>
+								<td>${escapeHtml(a.comments)}</td>
+							</tr>
+						`
+						)
+						.join('');
+					return areaRow + assetRows;
+				})
+				.join('');
+
+			container.innerHTML = `
+				${printButton}
+				<div class="table-wrap">
+					<table class="simple">
+						<thead>
+							<tr><th>Asset</th><th>Condition</th><th>Comments</th></tr>
+						</thead>
+						<tbody>${rowsHtml}</tbody>
+					</table>
+				</div>
+			`;
+		}
+
+		const printBtn = container.querySelector('#print-report-btn');
+		if (printBtn) {
+			printBtn.addEventListener('click', () => {
+				window.location.hash = `#/tenant/maintenance?tab=assets&print=1&unit_id=${encodeURIComponent(reportUnit.id)}`;
+			});
+		}
+	} catch (err) {
+		container.innerHTML = `<p class="error-text">${escapeHtml(err.message)}</p>`;
 	}
 }
 
@@ -225,19 +326,4 @@ function truncate(text, max = 120) {
 function capitalise(value) {
 	const text = String(value == null ? '' : value);
 	return text ? text.charAt(0).toUpperCase() + text.slice(1) : '';
-}
-
-function escapeAttr(value) {
-	return String(value == null ? '' : value)
-		.replace(/&/g, '&amp;')
-		.replace(/</g, '&lt;')
-		.replace(/>/g, '&gt;')
-		.replace(/"/g, '&quot;')
-		.replace(/'/g, '&#39;');
-}
-
-function escapeHtml(text) {
-	const div = document.createElement('div');
-	div.textContent = text == null ? '' : String(text);
-	return div.innerHTML;
 }

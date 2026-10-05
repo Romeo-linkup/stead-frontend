@@ -1,7 +1,7 @@
 // src/tenant/pay.page.js
 import { renderShell } from '../shared/shell.js';
 import { apiFetch } from '../shared/api.js';
-import { getCurrentUser } from '../auth/session.js';
+import { toast } from '../shared/toast.js';
 import { formatMoney, formatDueDate, capitalise } from '../shared/format.js';
 
 const DUE_BADGE = {
@@ -15,17 +15,24 @@ const HISTORY_BADGE = {
   outstanding: { cls: 'outstanding', label: 'Outstanding' },
 };
 
+const MAX_RECEIPT_MB = 5 * 1024 * 1024;
+const RECEIPT_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+
 export async function renderPay(root) {
   const content = renderShell(root, { activeHref: '#/tenant/pay', title: 'Rent & accounts' });
-  const user = getCurrentUser();
 
   content.innerHTML = `
     <div class="pagehead"><h2>Rent &amp; accounts</h2><p id="pay-sub"></p></div>
     <div id="pay-body">Loading...</div>
   `;
 
+  await loadPayData(content);
+}
+
+async function loadPayData(content) {
   const subEl = content.querySelector('#pay-sub');
   const bodyEl = content.querySelector('#pay-body');
+  if (!subEl || !bodyEl) return;
 
   try {
     const [tenantUnit, payments, settings] = await Promise.all([
@@ -55,6 +62,8 @@ export async function renderPay(root) {
       waterAndExtrasCard(unitPayments),
       historySection(unitPayments),
     ].join('');
+
+    wireReceiptEvents(content);
   } catch (err) {
     bodyEl.innerHTML = `<p class="error-text">${escapeHtml(err.message)}</p>`;
   }
@@ -132,30 +141,121 @@ function waterAndExtrasCard(unitPayments) {
   return `<div class="card"><b class="small">Water &amp; extras</b><div class="hairline"></div>${rows}</div>`;
 }
 
+// Each payment is a card so its receipts and upload control fit
+// at 360px (a table row could not hold a file input).
 function historySection(unitPayments) {
   if (!unitPayments.length) {
     return '<p class="small muted">No payments yet.</p>';
   }
 
-  const rows = unitPayments.map(payment => {
-    const badge = HISTORY_BADGE[payment.status] || { cls: payment.status, label: String(payment.status || '') };
-    return `<tr>
-      <td>${escapeHtml(formatDueDate(payment.due_date, 'short'))}</td>
-      <td>${escapeHtml(capitalise(payment.type))}</td>
-      <td>${escapeHtml(formatMoney(payment.amount))}</td>
-      <td><span class="badge ${badge.cls}">${escapeHtml(badge.label)}</span></td>
-    </tr>`;
-  }).join('');
-
   return `
     <b class="small" style="display:block; margin:14px 0 8px;">Payment history</b>
-    <div class="table-wrap">
-      <table class="simple">
-        <thead><tr><th>Date</th><th>Item</th><th>Amount</th><th></th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
+    ${unitPayments.map(paymentCard).join('')}
+  `;
+}
+
+function paymentCard(payment) {
+  const badge = HISTORY_BADGE[payment.status] || { cls: payment.status, label: String(payment.status || '') };
+  const isUnpaid = payment.status !== 'paid';
+  const receipts = Array.isArray(payment.receipts) ? payment.receipts : [];
+
+  const receiptsHtml = receipts.length
+    ? receipts
+        .map(
+          (r) => `
+        <div class="row small" style="margin-bottom:6px; gap:8px;">
+          <a href="${escapeAttr(r.url)}" target="_blank" rel="noopener" style="overflow-wrap:anywhere;">Receipt ${escapeHtml(formatDueDate(r.created_at, 'short'))}</a>
+          ${isUnpaid ? `<button class="btn danger sm remove-receipt-btn" type="button" data-payment-id="${escapeAttr(payment.id)}" data-receipt-id="${escapeAttr(r.id)}">Remove</button>` : ''}
+        </div>
+      `
+        )
+        .join('')
+    : '<p class="small muted" style="margin:0;">No receipts uploaded.</p>';
+
+  // Upload control + confirmation text only while unpaid.
+  const uploadHtml = isUnpaid
+    ? `
+      <div class="hairline"></div>
+      <label class="field-label" for="receipt-${escapeAttr(payment.id)}">Upload proof of payment</label>
+      <input class="field" id="receipt-${escapeAttr(payment.id)}" type="file" accept="image/*,application/pdf" data-upload-payment-id="${escapeAttr(payment.id)}">
+      <p class="small muted" style="margin:6px 0 0;">The property manager will confirm your payment.</p>
+    `
+    : '';
+
+  return `
+    <div class="card" style="margin-bottom:10px;">
+      <div class="row">
+        <div>
+          <b class="small">${escapeHtml(capitalise(payment.type))} · ${escapeHtml(formatMoney(payment.amount))}</b>
+          <div class="small muted">Due ${escapeHtml(formatDueDate(payment.due_date, 'short'))}</div>
+        </div>
+        <span class="badge ${badge.cls}">${escapeHtml(badge.label)}</span>
+      </div>
+      <div style="margin-top:10px;">${receiptsHtml}</div>
+      ${uploadHtml}
     </div>
   `;
+}
+
+function wireReceiptEvents(content) {
+  content.querySelectorAll('input[type="file"][data-upload-payment-id]').forEach((input) => {
+    input.addEventListener('change', async () => {
+      const paymentId = input.dataset.uploadPaymentId;
+      const file = input.files[0];
+      if (!file) return;
+
+      // Client-side type + size checks before any upload.
+      if (!RECEIPT_TYPES.includes(file.type)) {
+        toast('Only JPG, PNG, WebP or PDF files are allowed.');
+        input.value = '';
+        return;
+      }
+      if (file.size > MAX_RECEIPT_MB) {
+        toast('File size must be 5MB or less.');
+        input.value = '';
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('receipt', file);
+
+      input.disabled = true;
+      try {
+        await apiFetch(`/payments/${encodeURIComponent(paymentId)}/receipts`, {
+          method: 'POST',
+          body: formData,
+          isFormData: true,
+        });
+        toast('Receipt uploaded.');
+        await loadPayData(content);
+      } catch (err) {
+        toast(err.message || 'Failed to upload receipt.');
+        input.disabled = false;
+        input.value = '';
+      }
+    });
+  });
+
+  content.querySelectorAll('.remove-receipt-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const paymentId = btn.dataset.paymentId;
+      const receiptId = btn.dataset.receiptId;
+      if (!window.confirm('Remove this receipt?')) return;
+
+      btn.disabled = true;
+      try {
+        await apiFetch(
+          `/payments/${encodeURIComponent(paymentId)}/receipts/${encodeURIComponent(receiptId)}`,
+          { method: 'DELETE' }
+        );
+        toast('Receipt removed.');
+        await loadPayData(content);
+      } catch (err) {
+        toast(err.message || 'Failed to remove receipt.');
+        btn.disabled = false;
+      }
+    });
+  });
 }
 
 function subLineFor(unit) {
@@ -178,6 +278,15 @@ function firstOf(source, keys) {
     if (source[key]) return source[key];
   }
   return '';
+}
+
+function escapeAttr(value) {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function escapeHtml(str) {

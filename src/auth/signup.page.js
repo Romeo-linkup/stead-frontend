@@ -3,43 +3,7 @@ import { apiFetch } from '../shared/api.js';
 import { logoSvg } from '../shared/logo.js';
 import { setToken } from './session.js';
 import { routeToDashboard } from './login.page.js';
-
-function parseUnitNumbers(text) {
-  const result = [];
-  const items = text.split(/[,\s\n]+/);
-  for (const item of items) {
-    const trimmed = item.trim();
-    if (!trimmed) continue;
-
-    // Check for range like 101-110
-    const rangeMatch = trimmed.match(/^(\d+)-(\d+)$/);
-    if (rangeMatch) {
-      const start = parseInt(rangeMatch[1], 10);
-      const end = parseInt(rangeMatch[2], 10);
-      if (isNaN(start) || isNaN(end) || start > end) {
-        throw new Error(`Invalid range: ${trimmed}. Both ends must be whole numbers and start must be <= end.`);
-      }
-      for (let i = start; i <= end; i++) {
-        result.push(String(i));
-      }
-    } else {
-      result.push(trimmed);
-    }
-  }
-
-  // Dedupe case-insensitively
-  const seen = new Set();
-  const deduped = [];
-  for (const unit of result) {
-    const lower = unit.toLowerCase();
-    if (!seen.has(lower)) {
-      seen.add(lower);
-      deduped.push(unit);
-    }
-  }
-
-  return deduped;
-}
+import { parseUnitNumbers } from '../shared/units.js';
 
 export function renderSignup(root) {
   root.innerHTML = `
