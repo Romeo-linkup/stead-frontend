@@ -13,7 +13,7 @@ export function renderSignup(root) {
       <div class="login-card">
         <div class="mark">${logoSvg({ size: 52 })}</div>
         <h1 class="serif">Create your account</h1>
-        <div id="signup-error" class="error-text" style="display:none;"></div>
+        <div id="signup-error" class="auth-error" style="display:none;"></div>
         <div id="signup-steps"></div>
       </div>
     </div>
@@ -35,28 +35,37 @@ export function renderSignup(root) {
   }
 
   function renderStep1() {
+    const card = root.querySelector('.login-card');
+    if (card) card.classList.remove('wide');
     stepsContainer.innerHTML = `
+      <div class="auth-steps">
+        <span class="done"></span>
+        <span></span>
+        <span></span>
+      </div>
       <p class="sub">Step 1 of 3: Your details</p>
       <form id="step1-form">
         <div class="form-group">
-          <label for="name">Full name</label>
-          <input type="text" id="name" name="name" required maxlength="100" />
+          <label for="name" class="field-label">Full name</label>
+          <input type="text" id="name" name="name" class="field" required maxlength="100" />
         </div>
         <div class="form-group">
-          <label for="email">Email</label>
-          <input type="email" id="email" name="email" required maxlength="254" />
+          <label for="email" class="field-label">Email</label>
+          <input type="email" id="email" name="email" class="field" required maxlength="254" />
         </div>
         <div class="form-group">
-          <label for="password">Password</label>
-          <input type="password" id="password" name="password" required maxlength="72" />
-          <small class="muted">At least 10 characters</small>
+          <label for="password" class="field-label">Password</label>
+          <input type="password" id="password" name="password" class="field" required maxlength="72" />
+          <span class="auth-hint">At least 10 characters</span>
         </div>
         <div class="form-group">
-          <label for="confirm-password">Confirm password</label>
-          <input type="password" id="confirm-password" name="confirm-password" required maxlength="72" />
+          <label for="confirm-password" class="field-label">Confirm password</label>
+          <input type="password" id="confirm-password" name="confirm-password" class="field" required maxlength="72" />
         </div>
-        <button class="btn brass block" type="submit" id="step1-submit">Next</button>
-        <a href="#/login" class="btn-link block">Back to login</a>
+        <div class="auth-actions">
+          <button class="btn brass" type="submit" id="step1-submit">Next</button>
+        </div>
+        <a href="#/login" class="auth-link">Back to login</a>
       </form>
     `;
 
@@ -122,15 +131,24 @@ export function renderSignup(root) {
   }
 
   function renderStep2() {
+    const card = root.querySelector('.login-card');
+    if (card) card.classList.remove('wide');
     stepsContainer.innerHTML = `
+      <div class="auth-steps">
+        <span class="done"></span>
+        <span class="done"></span>
+        <span></span>
+      </div>
       <p class="sub">Step 2 of 3: Your business</p>
       <form id="step2-form">
         <div class="form-group">
-          <label for="business-name">Business name</label>
-          <input type="text" id="business-name" name="business_name" required maxlength="120" />
+          <label for="business-name" class="field-label">Business name</label>
+          <input type="text" id="business-name" name="business_name" class="field" required maxlength="120" />
         </div>
-        <button class="btn brass block" type="submit" id="step2-submit">Next</button>
-        <button class="btn secondary block" type="button" id="step2-back">Back</button>
+        <div class="auth-actions">
+          <button class="btn brass" type="submit" id="step2-submit">Next</button>
+          <button class="btn secondary" type="button" id="step2-back">Back</button>
+        </div>
       </form>
     `;
 
@@ -172,14 +190,21 @@ export function renderSignup(root) {
   }
 
   function renderStep3() {
+    const card = root.querySelector('.login-card');
+    if (card) card.classList.add('wide');
     stepsContainer.innerHTML = `
+      <div class="auth-steps">
+        <span class="done"></span>
+        <span class="done"></span>
+        <span class="done"></span>
+      </div>
       <p class="sub">Step 3 of 3: Your properties (optional)</p>
       <div id="districts-container"></div>
       <button class="btn secondary block" type="button" id="add-district">Add district</button>
-      <div style="margin-top: 1rem;">
-        <button class="btn brass block" type="button" id="step3-submit">Create account</button>
-        <button class="btn secondary block" type="button" id="step3-skip">Skip, I'll add these later</button>
-        <button class="btn secondary block" type="button" id="step3-back">Back</button>
+      <div class="auth-actions">
+        <button class="btn brass" type="button" id="step3-submit">Create account</button>
+        <button class="btn secondary" type="button" id="step3-skip">Skip, I'll add these later</button>
+        <button class="btn secondary" type="button" id="step3-back">Back</button>
       </div>
     `;
 
@@ -193,14 +218,14 @@ export function renderSignup(root) {
 
     function renderDistricts() {
       districtsContainer.innerHTML = districts.map((d, dIdx) => `
-        <div class="district-card" style="margin-bottom: 1rem; padding: 1rem; border: 1px solid #ddd; border-radius: 4px;">
+        <div class="signup-block">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
             <strong>District ${dIdx + 1}</strong>
             <button class="btn sm danger" type="button" data-remove-district="${dIdx}">Remove</button>
           </div>
           <div class="form-group">
-            <label>District name</label>
-            <input type="text" class="district-name" value="${d.name}" maxlength="100" data-district-idx="${dIdx}" />
+            <label class="field-label">District name</label>
+            <input type="text" class="district-name field" value="${d.name}" maxlength="100" data-district-idx="${dIdx}" />
           </div>
           <div id="properties-${dIdx}"></div>
           <button class="btn sm secondary" type="button" data-add-property="${dIdx}">Add property</button>
@@ -212,23 +237,24 @@ export function renderSignup(root) {
         const propsContainer = root.querySelector(`#properties-${dIdx}`);
         if (propsContainer) {
           propsContainer.innerHTML = d.properties.map((p, pIdx) => `
-            <div class="property-card" style="margin-bottom: 0.5rem; padding: 0.5rem; border: 1px solid #eee; border-radius: 4px;">
+            <div class="signup-block inner">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
                 <strong>Property ${pIdx + 1}</strong>
                 <button class="btn sm danger" type="button" data-remove-property="${dIdx}-${pIdx}">Remove</button>
               </div>
               <div class="form-group">
-                <label>Property name</label>
-                <input type="text" class="property-name" value="${p.name}" maxlength="100" data-district-idx="${dIdx}" data-property-idx="${pIdx}" />
+                <label class="field-label">Property name</label>
+                <input type="text" class="property-name field" value="${p.name}" maxlength="100" data-district-idx="${dIdx}" data-property-idx="${pIdx}" />
               </div>
               <div class="form-group">
-                <label>Address (optional)</label>
-                <input type="text" class="property-address" value="${p.address || ''}" maxlength="200" data-district-idx="${dIdx}" data-property-idx="${pIdx}" />
+                <label class="field-label">Address (optional)</label>
+                <input type="text" class="property-address field" value="${p.address || ''}" maxlength="200" data-district-idx="${dIdx}" data-property-idx="${pIdx}" />
               </div>
               <div class="form-group">
-                <label>Unit numbers</label>
-                <textarea class="property-units" rows="3" data-district-idx="${dIdx}" data-property-idx="${pIdx}">${p.units.join(', ')} (N units)</textarea>
-                <small class="muted">Separate with commas, spaces or new lines. Ranges like 101-110 work.</small>
+                <label class="field-label">Unit numbers</label>
+                <textarea class="property-units field" rows="3" data-district-idx="${dIdx}" data-property-idx="${pIdx}">${p.units.join(', ')}</textarea>
+                <div class="unit-count" id="unit-count-${dIdx}-${pIdx}">${p.units.length} units</div>
+                <span class="auth-hint">Separate with commas, spaces or new lines. Ranges like 101-110 work.</span>
               </div>
             </div>
           `).join('');
@@ -291,7 +317,8 @@ export function renderSignup(root) {
           try {
             const units = parseUnitNumbers(text);
             districts[dIdx].properties[pIdx].units = units;
-            textarea.value = text.split(' (N units)')[0] + ` (${units.length} units)`;
+            const countEl = root.querySelector(`#unit-count-${dIdx}-${pIdx}`);
+            if (countEl) countEl.textContent = `${units.length} units`;
           } catch (err) {
             // Don't update on error, let user see what they typed
           }

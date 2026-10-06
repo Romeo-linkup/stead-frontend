@@ -325,3 +325,21 @@ table.simple td { padding: 9px 5px; border-bottom: 1px solid var(--line); vertic
   .report-table td { height: 44px; }
   .report-table tr { page-break-inside: avoid; }
 }
+
+.login-card.wide{max-width:560px;}
+.auth-switch{display:flex;gap:8px;margin:0 0 18px;}
+.auth-switch .btn{flex:1;}
+.auth-switch .btn.is-active{border-color:var(--brass);color:var(--brass-dark);font-weight:700;}
+.auth-steps{display:flex;gap:6px;margin:0 0 20px;}
+.auth-steps span{flex:1;height:4px;border-radius:2px;background:var(--line);}
+.auth-steps span.done{background:var(--brass);}
+.login-card .field{font-size:16px;min-height:44px;}
+.auth-hint{display:block;font-size:12px;color:var(--slate);margin:-6px 0 14px;}
+.auth-error{color:var(--rust);font-size:13px;margin:0 0 12px;}
+.auth-actions{display:flex;gap:10px;margin-top:8px;}
+.auth-actions .btn{flex:1;}
+.auth-link{color:var(--brass-dark);font-weight:600;font-size:13px;text-decoration:none;display:inline-block;margin-top:14px;}
+.auth-link:hover{text-decoration:underline;}
+.signup-block{border:1px solid var(--line);border-radius:6px;padding:12px;margin:0 0 12px;}
+.signup-block.inner{margin:10px 0 0;background:var(--paper2);}
+.unit-count{font-size:12px;color:var(--slate);margin:-6px 0 12px;}

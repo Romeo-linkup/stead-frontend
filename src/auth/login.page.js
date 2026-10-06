@@ -29,15 +29,16 @@ export function renderLogin(root) {
       <div class="login-card">
         <div class="mark">${logoSvg({ size: 52 })}</div>
         <h1 class="serif">Welcome to <span id="brand-name">Stead</span></h1>
-        <div id="login-toggle" style="margin-bottom: 1rem;">
-          <button class="btn secondary sm" type="button" id="toggle-code" style="margin-right: 0.5rem;">Use access code</button>
+        <div class="auth-switch" id="login-toggle">
+          <button class="btn secondary sm is-active" type="button" id="toggle-code">Use access code</button>
           <button class="btn secondary sm" type="button" id="toggle-password">Owner sign in</button>
         </div>
-        <div id="login-error" class="error-text" style="display:none;"></div>
+        <div id="login-error" class="auth-error" style="display:none;"></div>
         <div id="code-login">
           <p class="sub">Enter the code you were given. It knows your district and your role — you'll land exactly where you need to be.</p>
           <form id="code-form">
-            <input class="code-input" id="code" name="code" placeholder="e.g. PTN-TEN-2201" autocomplete="off" autocapitalize="characters" spellcheck="false" required />
+            <label for="code" class="field-label">Access code</label>
+            <input class="code-input field" id="code" name="code" placeholder="e.g. PTN-TEN-2201" autocomplete="off" autocapitalize="characters" spellcheck="false" required />
             <button class="btn brass block" type="submit" id="code-submit">Continue</button>
           </form>
         </div>
@@ -45,19 +46,19 @@ export function renderLogin(root) {
           <p class="sub">Sign in with your owner account email and password.</p>
           <form id="password-form">
             <div class="form-group">
-              <label for="email">Email</label>
-              <input type="email" id="email" name="email" required maxlength="254" />
+              <label for="email" class="field-label">Email</label>
+              <input type="email" id="email" name="email" class="field" required maxlength="254" />
             </div>
             <div class="form-group">
-              <label for="password">Password</label>
-              <input type="password" id="password" name="password" required maxlength="200" />
+              <label for="password" class="field-label">Password</label>
+              <input type="password" id="password" name="password" class="field" required maxlength="200" />
             </div>
             <button class="btn brass block" type="submit" id="password-submit">Sign in</button>
           </form>
           <p class="muted" style="margin-top: 0.5rem; font-size: 0.875rem;">Forgot your password? Password recovery by email is coming soon.</p>
         </div>
         <div id="signup-link" style="margin-top: 1rem; display:none;">
-          <a href="#/signup" class="btn-link">Create an owner account</a>
+          <a href="#/signup" class="auth-link">Create an owner account</a>
         </div>
         <div class="login-foot">No app store install needed — this runs as a web app you can add to your home screen.</div>
       </div>
@@ -89,12 +90,16 @@ export function renderLogin(root) {
     codeLoginDiv.style.display = 'block';
     passwordLoginDiv.style.display = 'none';
     errorBox.style.display = 'none';
+    toggleCodeBtn.classList.add('is-active');
+    togglePasswordBtn.classList.remove('is-active');
   });
 
   togglePasswordBtn.addEventListener('click', () => {
     codeLoginDiv.style.display = 'none';
     passwordLoginDiv.style.display = 'block';
     errorBox.style.display = 'none';
+    togglePasswordBtn.classList.add('is-active');
+    toggleCodeBtn.classList.remove('is-active');
   });
 
   // Code login form
