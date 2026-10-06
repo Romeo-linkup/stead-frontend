@@ -1,7 +1,7 @@
 import { renderShell } from '../shared/shell.js';
 import { apiFetch } from '../shared/api.js';
 import { toast } from '../shared/toast.js';
-import { getCurrentUser, clearSession } from '../auth/session.js';
+import { getCurrentUser, logout } from '../auth/session.js';
 
 export function renderSettings(root) {
 	const content = renderShell(root, { activeHref: '#/admin/settings', title: 'Settings' });
@@ -172,7 +172,7 @@ async function renderDeleteAccountCard(content) {
 						method: 'DELETE',
 						body: { password, confirm_name: confirmName },
 					});
-					clearSession();
+					logout();
 					toast('Your account has been deleted.');
 					window.location.hash = '#/login';
 				} catch (error) {
