@@ -10,16 +10,25 @@ export function renderProfile(root) {
 		</div>
 		<div class="card">
 			<div class="field">
-				<label>Full name</label>
-				<input id="profile-name" placeholder="Your name">
+				<label class="field-label">Full name</label>
+				<input class="field" id="profile-name" placeholder="Your name">
 			</div>
 			<div class="field">
-				<label>Cellphone</label>
-				<input id="profile-phone" placeholder="e.g. 082 123 4567">
+				<label class="field-label">Cellphone</label>
+				<input class="field" id="profile-phone" placeholder="e.g. 082 123 4567">
 			</div>
 			<div class="field">
-				<label>Next of kin</label>
-				<input id="profile-kin" placeholder="Name and contact number">
+				<label class="field-label">Next of kin</label>
+				<input class="field" id="profile-kin" placeholder="Name and contact number">
+			</div>
+			<div class="field">
+				<label class="field-label">Email (for notifications)</label>
+				<input class="field" type="email" id="profile-email" placeholder="you@example.com">
+				<p class="small muted" style="margin:4px 0 0;">Optional. Used only to send you updates from Stead.</p>
+			</div>
+			<div class="field" style="align-items:flex-start;">
+				<input class="field" type="checkbox" id="profile-email-notifications" style="width:auto;margin-top:4px;">
+				<label class="field-label" for="profile-email-notifications" style="flex:1;margin:0;">Email me about updates</label>
 			</div>
 			<button class="btn btn-primary" id="save-profile">Save changes</button>
 			<div class="error-text" id="profile-error" hidden></div>
@@ -36,6 +45,8 @@ async function loadProfile() {
 		document.getElementById('profile-name').value = user.name || '';
 		document.getElementById('profile-phone').value = user.phone || '';
 		document.getElementById('profile-kin').value = user.next_of_kin || '';
+		document.getElementById('profile-email').value = user.email || '';
+		document.getElementById('profile-email-notifications').checked = user.email_notifications !== false;
 	} catch (err) {
 		console.error('Failed to load profile:', err);
 	}
@@ -49,6 +60,8 @@ function setupSaveHandler() {
 		const name = document.getElementById('profile-name').value.trim();
 		const phone = document.getElementById('profile-phone').value.trim();
 		const next_of_kin = document.getElementById('profile-kin').value.trim();
+		const email = document.getElementById('profile-email').value.trim();
+		const email_notifications = document.getElementById('profile-email-notifications').checked;
 
 		if (!name) {
 			errorDiv.textContent = 'Name is required';
@@ -63,7 +76,7 @@ function setupSaveHandler() {
 		try {
 			await apiFetch('/users/me', {
 				method: 'PATCH',
-				body: { name, phone, next_of_kin },
+				body: { name, phone, next_of_kin, email, email_notifications },
 			});
 			saveButton.textContent = 'Saved!';
 			setTimeout(() => {

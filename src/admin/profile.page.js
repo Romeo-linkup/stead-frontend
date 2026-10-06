@@ -14,12 +14,21 @@ export function renderProfile(root) {
 		</div>
 		<div class="card">
 			<div class="field">
-				<label>Name</label>
-				<input id="profile-name" placeholder="Your name">
+				<label class="field-label">Name</label>
+				<input class="field" id="profile-name" placeholder="Your name">
 			</div>
 			<div class="field">
-				<label>Role</label>
-				<input id="profile-role" placeholder="Your role" disabled>
+				<label class="field-label">Role</label>
+				<input class="field" id="profile-role" placeholder="Your role" disabled>
+			</div>
+			<div class="field">
+				<label class="field-label">Email (for notifications)</label>
+				<input class="field" type="email" id="profile-email" placeholder="you@example.com"${isOwner ? ' readonly' : ''}>
+				<p class="small muted" style="margin:4px 0 0;">${isOwner ? 'This is your login email and cannot be changed here.' : 'Optional. Used only to send you updates from Stead.'}</p>
+			</div>
+			<div class="field" style="align-items:flex-start;">
+				<input class="field" type="checkbox" id="profile-email-notifications" style="width:auto;margin-top:4px;">
+				<label class="field-label" for="profile-email-notifications" style="flex:1;margin:0;">Email me about updates</label>
 			</div>
 			<button class="btn btn-primary" id="save-profile">Save changes</button>
 			<div class="error-text" id="profile-error" hidden></div>
@@ -34,8 +43,8 @@ export function renderProfile(root) {
 				property managers you add.
 			</p>
 			<div class="field">
-				<label>Business name</label>
-				<input id="business-name" placeholder="e.g. Redfern Properties">
+				<label class="field-label">Business name</label>
+				<input class="field" id="business-name" placeholder="e.g. Redfern Properties">
 			</div>
 			<button class="btn btn-primary" id="save-business-name">Save name</button>
 			<div class="error-text" id="business-name-error" hidden></div>
@@ -61,9 +70,11 @@ async function loadProfile() {
 			user.role === 'owner'
 				? 'Owner / Admin'
 				: user.role === 'property_manager'
-				? 'Property Manager'
-				: user.role;
+					? 'Property Manager'
+					: user.role;
 		document.getElementById('profile-role').value = roleDisplay;
+		document.getElementById('profile-email').value = user.email || '';
+		document.getElementById('profile-email-notifications').checked = user.email_notifications !== false;
 	} catch (err) {
 		console.error('Failed to load profile:', err);
 	}
@@ -75,6 +86,8 @@ function setupSaveHandler() {
 
 	saveButton.addEventListener('click', async () => {
 		const name = document.getElementById('profile-name').value.trim();
+		const email = document.getElementById('profile-email').value.trim();
+		const email_notifications = document.getElementById('profile-email-notifications').checked;
 
 		if (!name) {
 			errorDiv.textContent = 'Name is required';
@@ -89,7 +102,7 @@ function setupSaveHandler() {
 		try {
 			await apiFetch('/users/me', {
 				method: 'PATCH',
-				body: { name },
+				body: { name, email, email_notifications },
 			});
 			saveButton.textContent = 'Saved!';
 			setTimeout(() => {

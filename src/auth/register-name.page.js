@@ -15,12 +15,17 @@ export function renderRegisterName(root, { role, district_name } = {}) {
         </p>
         <form id="register-form">
           <div class="field">
-            <label for="name">Full name</label>
-            <input id="name" name="name" required />
+            <label class="field-label" for="name">Full name</label>
+            <input class="field" id="name" name="name" required />
           </div>
           <div class="field">
-            <label for="phone">Phone number (optional)</label>
-            <input id="phone" name="phone" placeholder="+27 ..." />
+            <label class="field-label" for="phone">Phone number (optional)</label>
+            <input class="field" id="phone" name="phone" placeholder="+27 ..." />
+          </div>
+          <div class="field">
+            <label class="field-label" for="email">Email (optional)</label>
+            <input class="field" type="email" id="email" name="email" placeholder="you@example.com" />
+            <p class="small muted" style="margin:4px 0 0;">Used only to send you updates from Stead.</p>
           </div>
           <div id="register-error" class="error-text" style="display:none;"></div>
           <button class="btn btn-primary" type="submit" style="width:100%;" id="register-submit">Continue</button>
@@ -54,7 +59,7 @@ export function renderRegisterName(root, { role, district_name } = {}) {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${preToken}`,
         },
-        body: JSON.stringify({ name: form.name.value.trim(), phone: form.phone.value.trim() || null }),
+        body: JSON.stringify({ name: form.name.value.trim(), phone: form.phone.value.trim() || null, email: form.email.value.trim() || null }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Registration failed.');
