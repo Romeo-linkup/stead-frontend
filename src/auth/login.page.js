@@ -163,15 +163,18 @@ export function renderLogin(root) {
   });
 
   // Check config to show signup link
-  apiFetch('/auth/config', { auth: false })
-    .then(config => {
+  async function loadConfig() {
+    try {
+      const config = await apiFetch('/auth/config', { auth: false });
       if (config.signup_open) {
         signupLinkDiv.style.display = 'block';
       }
-    })
-    .catch(err => {
+    } catch (err) {
       // Silently fail, signup link just won't show
-    });
+    }
+  }
+
+  loadConfig();
 }
 
 export function routeToDashboard(role) {

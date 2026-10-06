@@ -5,6 +5,8 @@ import { setToken } from './session.js';
 import { routeToDashboard } from './login.page.js';
 import { parseUnitNumbers } from '../shared/units.js';
 
+const byteLength = s => new TextEncoder().encode(String(s)).length;
+
 export function renderSignup(root) {
   root.innerHTML = `
     <div class="login-screen">
@@ -67,58 +69,55 @@ export function renderSignup(root) {
       submitBtn.disabled = true;
       submitBtn.textContent = 'Validating...';
 
-      const name = form.name.value.trim();
-      const email = form.email.value.trim();
-      const password = form.password.value;
-      const confirmPassword = form['confirm-password'].value;
+      try {
+        const name = form.name.value.trim();
+        const email = form.email.value.trim();
+        const password = form.password.value;
+        const confirmPassword = form['confirm-password'].value;
 
-      if (name.length < 1 || name.length > 100) {
-        showError('Name must be between 1 and 100 characters.');
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Next';
-        return;
+        if (name.length < 1 || name.length > 100) {
+          showError('Name must be between 1 and 100 characters.');
+          return;
+        }
+
+        if (email.length < 1 || email.length > 254) {
+          showError('Email must be between 1 and 254 characters.');
+          return;
+        }
+
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+          showError('Invalid email format.');
+          return;
+        }
+
+        const passwordBytes = byteLength(password);
+        if (passwordBytes < 10 || passwordBytes > 72) {
+          showError('Password must be between 10 and 72 bytes.');
+          return;
+        }
+
+        if (password === email.toLowerCase()) {
+          showError('Password cannot be the same as your email.');
+          return;
+        }
+
+        if (password !== confirmPassword) {
+          showError('Passwords do not match.');
+          return;
+        }
+
+        formData = { ...formData, name, email: email.toLowerCase(), password };
+        step = 2;
+        renderStep2();
+      } catch (err) {
+        showError(err.message);
+      } finally {
+        if (submitBtn.isConnected) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Next';
+        }
       }
-
-      if (email.length < 1 || email.length > 254) {
-        showError('Email must be between 1 and 254 characters.');
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Next';
-        return;
-      }
-
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
-        showError('Invalid email format.');
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Next';
-        return;
-      }
-
-      const passwordBytes = Buffer.byteLength(password, 'utf8');
-      if (passwordBytes < 10 || passwordBytes > 72) {
-        showError('Password must be between 10 and 72 bytes.');
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Next';
-        return;
-      }
-
-      if (password === email.toLowerCase()) {
-        showError('Password cannot be the same as your email.');
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Next';
-        return;
-      }
-
-      if (password !== confirmPassword) {
-        showError('Passwords do not match.');
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Next';
-        return;
-      }
-
-      formData = { ...formData, name, email: email.toLowerCase(), password };
-      step = 2;
-      renderStep2();
     });
   }
 
@@ -145,18 +144,25 @@ export function renderSignup(root) {
       submitBtn.disabled = true;
       submitBtn.textContent = 'Validating...';
 
-      const businessName = form['business-name'].value.trim();
+      try {
+        const businessName = form['business-name'].value.trim();
 
-      if (businessName.length < 1 || businessName.length > 120) {
-        showError('Business name must be between 1 and 120 characters.');
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Next';
-        return;
+        if (businessName.length < 1 || businessName.length > 120) {
+          showError('Business name must be between 1 and 120 characters.');
+          return;
+        }
+
+        formData = { ...formData, business_name: businessName };
+        step = 3;
+        renderStep3();
+      } catch (err) {
+        showError(err.message);
+      } finally {
+        if (submitBtn.isConnected) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Next';
+        }
       }
-
-      formData = { ...formData, business_name: businessName };
-      step = 3;
-      renderStep3();
     });
 
     backBtn.addEventListener('click', () => {
@@ -308,8 +314,17 @@ export function renderSignup(root) {
     });
 
     skipBtn.addEventListener('click', async () => {
-      formData = { ...formData, districts: [] };
-      await submitSignup();
+      try {
+        formData = { ...formData, districts: [] };
+        await submitSignup();
+      } catch (err) {
+        showError(err.message);
+      } finally {
+        if (skipBtn.isConnected) {
+          skipBtn.disabled = false;
+          skipBtn.textContent = 'Skip, I\'ll add these later';
+        }
+      }
     });
 
     submitBtn.addEventListener('click', async () => {
@@ -317,120 +332,99 @@ export function renderSignup(root) {
       submitBtn.disabled = true;
       submitBtn.textContent = 'Validating...';
 
-      // Validate districts
-      if (districts.length > 10) {
-        showError('You can have at most 10 districts.');
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Create account';
-        return;
-      }
-
-      const districtNames = new Set();
-      let totalUnits = 0;
-
-      for (const district of districts) {
-        if (district.name.trim().length < 1 || district.name.trim().length > 100) {
-          showError('District name must be between 1 and 100 characters.');
-          submitBtn.disabled = false;
-          submitBtn.textContent = 'Create account';
-          return;
-        }
-        const dNameLower = district.name.trim().toLowerCase();
-        if (districtNames.has(dNameLower)) {
-          showError('District names must be unique.');
-          submitBtn.disabled = false;
-          submitBtn.textContent = 'Create account';
-          return;
-        }
-        districtNames.add(dNameLower);
-
-        if (!Array.isArray(district.properties) || district.properties.length > 30) {
-          showError('Each district can have at most 30 properties.');
-          submitBtn.disabled = false;
-          submitBtn.textContent = 'Create account';
+      try {
+        // Validate districts
+        if (districts.length > 10) {
+          showError('You can have at most 10 districts.');
           return;
         }
 
-        const propertyNames = new Set();
-        for (const property of district.properties) {
-          if (property.name.trim().length < 1 || property.name.trim().length > 100) {
-            showError('Property name must be between 1 and 100 characters.');
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Create account';
-            return;
-          }
-          const pNameLower = property.name.trim().toLowerCase();
-          if (propertyNames.has(pNameLower)) {
-            showError('Property names must be unique within a district.');
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Create account';
-            return;
-          }
-          propertyNames.add(pNameLower);
+        const districtNames = new Set();
+        let totalUnits = 0;
 
-          if (property.address && property.address.length > 200) {
-            showError('Property address must be at most 200 characters.');
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Create account';
+        for (const district of districts) {
+          if (district.name.trim().length < 1 || district.name.trim().length > 100) {
+            showError('District name must be between 1 and 100 characters.');
+            return;
+          }
+          const dNameLower = district.name.trim().toLowerCase();
+          if (districtNames.has(dNameLower)) {
+            showError('District names must be unique.');
+            return;
+          }
+          districtNames.add(dNameLower);
+
+          if (!Array.isArray(district.properties) || district.properties.length > 30) {
+            showError('Each district can have at most 30 properties.');
             return;
           }
 
-          if (!Array.isArray(property.units)) {
-            showError('Units must be an array.');
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Create account';
-            return;
-          }
+          const propertyNames = new Set();
+          for (const property of district.properties) {
+            if (property.name.trim().length < 1 || property.name.trim().length > 100) {
+              showError('Property name must be between 1 and 100 characters.');
+              return;
+            }
+            const pNameLower = property.name.trim().toLowerCase();
+            if (propertyNames.has(pNameLower)) {
+              showError('Property names must be unique within a district.');
+              return;
+            }
+            propertyNames.add(pNameLower);
 
-          const unitNumbers = new Set();
-          for (const unit of property.units) {
-            if (unit.trim().length < 1 || unit.trim().length > 20) {
-              showError('Unit number must be between 1 and 20 characters.');
-              submitBtn.disabled = false;
-              submitBtn.textContent = 'Create account';
+            if (property.address && property.address.length > 200) {
+              showError('Property address must be at most 200 characters.');
               return;
             }
-            const unitRegex = /^[A-Za-z0-9][A-Za-z0-9 ._\/-]*$/;
-            if (!unitRegex.test(unit.trim())) {
-              showError('Unit number contains invalid characters.');
-              submitBtn.disabled = false;
-              submitBtn.textContent = 'Create account';
+
+            if (!Array.isArray(property.units)) {
+              showError('Units must be an array.');
               return;
             }
-            const unitLower = unit.trim().toLowerCase();
-            if (unitNumbers.has(unitLower)) {
-              showError('Unit numbers must be unique within a property.');
-              submitBtn.disabled = false;
-              submitBtn.textContent = 'Create account';
-              return;
+
+            const unitNumbers = new Set();
+            for (const unit of property.units) {
+              if (unit.trim().length < 1 || unit.trim().length > 20) {
+                showError('Unit number must be between 1 and 20 characters.');
+                return;
+              }
+              const unitRegex = /^[A-Za-z0-9][A-Za-z0-9 ._\/-]*$/;
+              if (!unitRegex.test(unit.trim())) {
+                showError('Unit number contains invalid characters.');
+                return;
+              }
+              const unitLower = unit.trim().toLowerCase();
+              if (unitNumbers.has(unitLower)) {
+                showError('Unit numbers must be unique within a property.');
+                return;
+              }
+              unitNumbers.add(unitLower);
+              totalUnits++;
             }
-            unitNumbers.add(unitLower);
-            totalUnits++;
           }
         }
-      }
 
-      if (totalUnits > 500) {
-        showError('You can have at most 500 units total.');
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Create account';
-        return;
-      }
+        if (totalUnits > 500) {
+          showError('You can have at most 500 units total.');
+          return;
+        }
 
-      formData = { ...formData, districts };
-      await submitSignup();
+        formData = { ...formData, districts };
+        await submitSignup();
+      } catch (err) {
+        showError(err.message);
+      } finally {
+        if (submitBtn.isConnected) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Create account';
+        }
+      }
     });
 
     renderDistricts();
   }
 
   async function submitSignup() {
-    const submitBtn = root.querySelector('#step3-submit') || root.querySelector('#step3-skip');
-    if (submitBtn) {
-      submitBtn.disabled = true;
-      submitBtn.textContent = 'Creating account...';
-    }
-
     try {
       const data = await apiFetch('/auth/signup', {
         method: 'POST',
@@ -441,17 +435,13 @@ export function renderSignup(root) {
       setToken(data.token);
       routeToDashboard('owner');
     } catch (err) {
-      showError(err.message);
-      if (submitBtn) {
-        submitBtn.disabled = false;
-        submitBtn.textContent = step === 3 ? 'Create account' : 'Skip, I\'ll add these later';
-      }
+      throw err;
     }
   }
 
-  // Check if signup is open
-  apiFetch('/auth/config', { auth: false })
-    .then(config => {
+  async function loadConfig() {
+    try {
+      const config = await apiFetch('/auth/config', { auth: false });
       if (!config.signup_open) {
         stepsContainer.innerHTML = `
           <p class="sub">Sign-up isn't open yet.</p>
@@ -460,8 +450,14 @@ export function renderSignup(root) {
       } else {
         renderStep1();
       }
-    })
-    .catch(err => {
-      showError(err.message);
-    });
+    } catch (err) {
+      stepsContainer.innerHTML = `
+        <div class="auth-error">Can't reach the server. It may be waking up, try again in a minute.</div>
+        <button class="btn brass block" type="button" id="config-retry">Try again</button>
+      `;
+      root.querySelector('#config-retry').addEventListener('click', loadConfig);
+    }
+  }
+
+  loadConfig();
 }
