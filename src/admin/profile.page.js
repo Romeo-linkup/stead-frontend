@@ -2,6 +2,7 @@ import { renderShell } from '../shared/shell.js';
 import { apiFetch } from '../shared/api.js';
 import { getCurrentUser } from '../auth/session.js';
 import { invalidateBusinessNameCache } from '../shared/topbar.js';
+import { toast } from '../shared/toast.js';
 
 export function renderProfile(root) {
 	const content = renderShell(root, { activeHref: '#/admin/profile', title: 'My profile' });
@@ -25,6 +26,10 @@ export function renderProfile(root) {
 				<label class="field-label">Email (for notifications)</label>
 				<input class="field" type="email" id="profile-email" placeholder="you@example.com"${isOwner ? ' readonly' : ''}>
 				<p class="small muted" style="margin:4px 0 0;">${isOwner ? 'This is your login email and cannot be changed here.' : 'Optional. Used only to send you updates from Stead.'}</p>
+				<div class="email-verified" id="email-verified" style="display:none;align-items:center;gap:0.5rem;margin-top:0.5rem;">
+					<span class="badge" id="email-badge"></span>
+					<button class="btn secondary sm" id="send-verification" type="button" style="display:none;">Send confirmation email</button>
+				</div>
 			</div>
 			<div class="field" style="align-items:flex-start;">
 				<input class="field" type="checkbox" id="profile-email-notifications" style="width:auto;margin-top:4px;">
@@ -55,10 +60,45 @@ export function renderProfile(root) {
 
 	loadProfile();
 	setupSaveHandler();
+	setupVerificationHandler();
 	if (isOwner) {
 		loadBusinessName();
 		setupBusinessNameHandler();
 	}
+}
+
+let loadedEmail = '';
+
+function renderEmailBadge(user) {
+	const row = document.getElementById('email-verified');
+	const badge = document.getElementById('email-badge');
+	const verifyButton = document.getElementById('send-verification');
+	if (!row || !badge || !verifyButton) return;
+
+	const hasEmail = Boolean(user.email);
+	const verified = user.email_verified === true;
+
+	row.style.display = 'flex';
+	badge.className = verified ? 'badge finished' : 'badge pending';
+	badge.textContent = verified ? 'Confirmed' : 'Not confirmed';
+	verifyButton.style.display = hasEmail && !verified ? '' : 'none';
+}
+
+function setupVerificationHandler() {
+	const verifyButton = document.getElementById('send-verification');
+	if (!verifyButton) return;
+
+	verifyButton.addEventListener('click', async () => {
+		verifyButton.disabled = true;
+		try {
+			await apiFetch('/notifications/send-verification', { method: 'POST' });
+			toast('Confirmation email sent. Check your inbox.');
+		} catch (err) {
+			toast(err.message);
+		} finally {
+			verifyButton.disabled = false;
+		}
+	});
 }
 
 async function loadProfile() {
@@ -75,6 +115,8 @@ async function loadProfile() {
 		document.getElementById('profile-role').value = roleDisplay;
 		document.getElementById('profile-email').value = user.email || '';
 		document.getElementById('profile-email-notifications').checked = user.email_notifications !== false;
+		loadedEmail = user.email || '';
+		renderEmailBadge(user);
 	} catch (err) {
 		console.error('Failed to load profile:', err);
 	}
@@ -104,6 +146,10 @@ function setupSaveHandler() {
 				method: 'PATCH',
 				body: { name, email, email_notifications },
 			});
+			if (email !== loadedEmail) {
+				window.location.reload();
+				return;
+			}
 			saveButton.textContent = 'Saved!';
 			setTimeout(() => {
 				saveButton.textContent = 'Save changes';

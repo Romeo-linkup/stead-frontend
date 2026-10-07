@@ -55,7 +55,7 @@ export function renderLogin(root) {
             </div>
             <button class="btn brass block" type="submit" id="password-submit">Sign in</button>
           </form>
-          <p class="muted" style="margin-top: 0.5rem; font-size: 0.875rem;">Forgot your password? Password recovery by email is coming soon.</p>
+          <p id="forgot-password-line" class="muted" style="margin-top: 0.5rem; font-size: 0.875rem;">Forgot your password? Contact support.</p>
         </div>
         <div id="signup-link" style="margin-top: 1rem; display:none;">
           <a href="#/signup" class="auth-link">Create an owner account</a>
@@ -173,6 +173,10 @@ export function renderLogin(root) {
       const config = await apiFetch('/auth/config', { auth: false });
       if (config.signup_open) {
         signupLinkDiv.style.display = 'block';
+      }
+      const forgotLine = root.querySelector('#forgot-password-line');
+      if (forgotLine && config.email_enabled) {
+        forgotLine.innerHTML = '<a href="#/forgot-password" class="auth-link">Forgot your password?</a>';
       }
     } catch (err) {
       // Silently fail, signup link just won't show

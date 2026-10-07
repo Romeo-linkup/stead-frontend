@@ -30,3 +30,36 @@ export async function apiFetch(path, { method = 'GET', body, auth = true, isForm
   }
   return data;
 }
+
+export async function apiFetchBlob(path) {
+  const headers = {};
+  const token = getToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const res = await fetch(`${API_URL}${path}`, { headers });
+
+  if (res.status === 401) {
+    logout();
+    throw new Error('Session expired. Please log in again.');
+  }
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `Request failed (${res.status})`);
+  }
+  return res.blob();
+}
+
+export function saveBlob(blob, filename) {
+  const objectUrl = URL.createObjectURL(blob);
+  try {
+    const anchor = document.createElement('a');
+    anchor.href = objectUrl;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}

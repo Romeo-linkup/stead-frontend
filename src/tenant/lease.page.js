@@ -1,6 +1,7 @@
 // src/tenant/lease.page.js
 import { renderShell } from '../shared/shell.js';
-import { apiFetch } from '../shared/api.js';
+import { apiFetch, apiFetchBlob, saveBlob } from '../shared/api.js';
+import { toast } from '../shared/toast.js';
 
 export async function renderLease(root) {
   const content = renderShell(root, { activeHref: '#/tenant/lease', title: 'Lease' });
@@ -26,12 +27,16 @@ export async function renderLease(root) {
         renderLeaseDocument(container, lease);
         setupSignatureCanvas(container, lease);
       } else if (lease.status === 'signed') {
-        container.innerHTML = '<div id="lease-document"></div><section class="lease-signature lease-signed"><h2>Signed lease</h2><img id="stored-signature" alt="Stored signature"><p>This lease has been signed and is legally binding.</p></section>';
+        container.innerHTML = `<div id="lease-document"></div><section class="lease-signature lease-signed"><h2>Signed lease</h2><img id="stored-signature" alt="Stored signature"><p>This lease has been signed and is legally binding.</p>${leasePdfActionsHtml()}</section>`;
         renderLeaseDocument(container, lease);
         container.querySelector('#stored-signature').src = lease.signature_image_url;
+        setupPdfActions(container, lease);
       } else {
-        container.innerHTML = `${lease.status === 'superseded' ? '<p class="small muted">This lease has been replaced by a newer one.</p>' : ''}<div id="lease-document"></div>`;
+        container.innerHTML = `${lease.status === 'superseded' ? '<p class="small muted">This lease has been replaced by a newer one.</p>' : ''}<div id="lease-document"></div>${lease.status === 'superseded' ? leasePdfActionsHtml() : ''}`;
         renderLeaseDocument(container, lease);
+        if (lease.status === 'superseded') {
+          setupPdfActions(container, lease);
+        }
       }
     } catch (err) {
       if (err.message === 'No lease found for your unit.') {
@@ -153,6 +158,59 @@ export async function renderLease(root) {
   }
 
   await loadLease();
+}
+
+function leasePdfActionsHtml() {
+  return `<div class="lease-pdf-actions" style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.75rem;">
+    <button class="btn brass" type="button" id="download-pdf">Download PDF</button>
+    <button class="btn secondary" type="button" id="email-copy">Email me a copy</button>
+  </div>
+  <p class="small muted" id="email-hint" style="display:none;margin-top:0.5rem;">Add and confirm your email in <a href="#/tenant/profile">My profile</a> to get a copy by email.</p>`;
+}
+
+async function setupPdfActions(container, lease) {
+  const downloadButton = container.querySelector('#download-pdf');
+  const emailButton = container.querySelector('#email-copy');
+  const hint = container.querySelector('#email-hint');
+  if (!downloadButton || !emailButton) return;
+
+  try {
+    const user = await apiFetch('/users/me');
+    if (hint && user.email_verified === false) {
+      hint.style.display = 'block';
+    }
+  } catch (err) {
+    // Silently fail, the hint just won't show
+  }
+
+  downloadButton.addEventListener('click', async () => {
+    downloadButton.disabled = true;
+    emailButton.disabled = true;
+    try {
+      const blob = await apiFetchBlob(`/leases/${lease.id}/pdf`);
+      saveBlob(blob, `Lease-${lease.property_name}-${lease.unit_number}.pdf`);
+      toast('PDF downloaded.');
+    } catch (err) {
+      toast(err.message);
+    } finally {
+      downloadButton.disabled = false;
+      emailButton.disabled = false;
+    }
+  });
+
+  emailButton.addEventListener('click', async () => {
+    emailButton.disabled = true;
+    downloadButton.disabled = true;
+    try {
+      await apiFetch(`/leases/${lease.id}/email-copy`, { method: 'POST' });
+      toast('PDF emailed to you.');
+    } catch (err) {
+      toast(err.message);
+    } finally {
+      emailButton.disabled = false;
+      downloadButton.disabled = false;
+    }
+  });
 }
 
 function escapeHtml(str) {

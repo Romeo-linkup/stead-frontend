@@ -1,6 +1,6 @@
 // src/admin/leases.page.js
 import { renderShell } from '../shared/shell.js';
-import { apiFetch } from '../shared/api.js';
+import { apiFetch, apiFetchBlob, saveBlob } from '../shared/api.js';
 import { toast } from '../shared/toast.js';
 import { createSignaturePad, fileToSignatureDataUrl } from '../shared/signature-pad.js';
 
@@ -139,7 +139,7 @@ function leaseActions(lease) {
   }
   if (lease.status === 'sent') return `${button('edit-sent', 'Edit')}${lease.lessor_signature_url ? view : sign}`;
   if (lease.status === 'signed') {
-    return `${view}${lease.lessor_signature_url ? '' : sign}${button('renew', 'Renew / amend', 'brass')}`;
+    return `${view}${lease.lessor_signature_url ? '' : sign}${button('download-pdf', 'Download PDF')}${button('email-copy', 'Email copy to tenant')}${button('renew', 'Renew / amend', 'brass')}`;
   }
   return view;
 }
@@ -171,6 +171,14 @@ async function handleListAction(button, container) {
       } else if (action === 'renew') {
         const renewed = await apiFetch(`/leases/${encodeURIComponent(id)}/supersede`, { method: 'POST' });
         window.location.hash = `#/admin/leases?edit=${encodeURIComponent(renewed.id)}`;
+      } else if (action === 'download-pdf') {
+        const lease = await apiFetch(`/leases/${encodeURIComponent(id)}`);
+        const blob = await apiFetchBlob(`/leases/${encodeURIComponent(id)}/pdf`);
+        saveBlob(blob, `Lease-${lease.property_name}-${lease.unit_number}.pdf`);
+        toast('PDF downloaded.');
+      } else if (action === 'email-copy') {
+        await apiFetch(`/leases/${encodeURIComponent(id)}/email-copy`, { method: 'POST' });
+        toast('Lease PDF emailed to the tenant.');
       }
     });
   } catch (error) {
@@ -433,6 +441,8 @@ async function renderLeaseView(content, leaseId) {
       }
     } else if (lease.status === 'signed') {
       actions += `<button class="btn brass sm" id="view-renew" type="button" data-id="${escapeHtml(lease.id)}">Renew / amend</button>`;
+      actions += `<button class="btn secondary sm" id="view-download-pdf" type="button" data-id="${escapeHtml(lease.id)}">Download PDF</button>`;
+      actions += `<button class="btn secondary sm" id="view-email-copy" type="button" data-id="${escapeHtml(lease.id)}">Email copy to tenant</button>`;
     }
     content.innerHTML = `
       <div class="pagehead"><h2>${escapeHtml(title)}</h2><p>${statusBadge(lease.status)}</p></div>
@@ -465,6 +475,31 @@ async function renderLeaseView(content, leaseId) {
       window.location.hash = `#/admin/leases?edit=${encodeURIComponent(lease.id)}`;
     });
     content.querySelector('#view-renew')?.addEventListener('click', (event) => renewLease(event.currentTarget, lease.id));
+    content.querySelector('#view-download-pdf')?.addEventListener('click', async (event) => {
+      const button = event.currentTarget;
+      button.disabled = true;
+      try {
+        const blob = await apiFetchBlob(`/leases/${encodeURIComponent(lease.id)}/pdf`);
+        saveBlob(blob, `Lease-${lease.property_name}-${lease.unit_number}.pdf`);
+        toast('PDF downloaded.');
+      } catch (error) {
+        showError(error, 'Unable to download the PDF.');
+      } finally {
+        button.disabled = false;
+      }
+    });
+    content.querySelector('#view-email-copy')?.addEventListener('click', async (event) => {
+      const button = event.currentTarget;
+      button.disabled = true;
+      try {
+        await apiFetch(`/leases/${encodeURIComponent(lease.id)}/email-copy`, { method: 'POST' });
+        toast('Lease PDF emailed to the tenant.');
+      } catch (error) {
+        showError(error, 'Unable to email the lease.');
+      } finally {
+        button.disabled = false;
+      }
+    });
   } catch (error) {
     showError(error, 'Unable to load lease.');
     content.innerHTML = '<div class="card"><p class="small muted">Lease could not be loaded.</p><a class="btn secondary sm" href="#/admin/leases">Back to leases</a></div>';

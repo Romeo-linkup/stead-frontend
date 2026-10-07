@@ -4,6 +4,8 @@ import { initTheme } from './shared/theme.js';
 import { initPwa } from './shared/pwa.js';
 import { renderLogin, routeToDashboard } from './auth/login.page.js';
 import { renderSignup } from './auth/signup.page.js';
+import { renderForgotPassword } from './auth/forgot-password.page.js';
+import { renderResetPassword } from './auth/reset-password.page.js';
 import { renderDistricts } from './admin/districts.page.js';
 import { renderCodes } from './admin/codes.page.js';
 import { renderProperties } from './admin/properties.page.js';
@@ -52,22 +54,27 @@ function isKnownRole(user) {
 
 async function router() {
   const hash = window.location.hash || '#/';
+  const bareHash = hash.split('?')[0];
   const user = getCurrentUser();
 
   if (!user) {
-    if (hash !== '#/login' && hash !== '#/signup' && hash !== '#/') {
+    if (hash !== '#/login' && hash !== '#/signup' && hash !== '#/' && bareHash !== '#/forgot-password' && bareHash !== '#/reset-password') {
       window.location.hash = '#/login';
       return;
     }
     if (hash === '#/signup') {
       renderSignup(root);
+    } else if (bareHash === '#/forgot-password') {
+      renderForgotPassword(root);
+    } else if (bareHash === '#/reset-password') {
+      renderResetPassword(root);
     } else {
       renderLogin(root);
     }
     return;
   }
 
-  if (isKnownRole(user) && ENTRY_HASHES.includes(hash)) {
+  if (isKnownRole(user) && (ENTRY_HASHES.includes(hash) || bareHash === '#/forgot-password' || bareHash === '#/reset-password')) {
     routeToDashboard(user.role);
     return;
   }
