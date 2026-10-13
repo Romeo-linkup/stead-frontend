@@ -35,6 +35,12 @@ import { renderInvoices as renderAdminInvoices } from './admin/invoices.page.js'
 import { renderSettings as renderAdminSettings } from './admin/settings.page.js';
 import { renderProfile as renderAdminProfile } from './admin/profile.page.js';
 import { getCurrentUser } from './auth/session.js';
+import { renderPlatformLogin } from './platform/login.page.js';
+import { renderPlatformOverview } from './platform/overview.page.js';
+import { renderPlatformOrgs } from './platform/orgs.page.js';
+import { renderPlatformOrgDetail } from './platform/org-detail.page.js';
+import { renderPlatformLedger } from './platform/ledger.page.js';
+import { getPlatformToken } from './platform/api.js';
 
 const root = document.getElementById('app-root');
 initTheme();
@@ -56,7 +62,51 @@ async function router() {
   const hash = window.location.hash || '#/';
   const bareHash = hash.split('?')[0];
   const user = getCurrentUser();
+  const platformToken = getPlatformToken();
 
+  // Platform routes (check BEFORE normal auth guard)
+  if (bareHash === '#/platform/login') {
+    renderPlatformLogin(root);
+    return;
+  }
+
+  if (bareHash === '#/platform' || bareHash === '#/platform/') {
+    if (!platformToken) {
+      window.location.hash = '#/platform/login';
+      return;
+    }
+    renderPlatformOverview(root);
+    return;
+  }
+
+  if (bareHash === '#/platform/orgs') {
+    if (!platformToken) {
+      window.location.hash = '#/platform/login';
+      return;
+    }
+    renderPlatformOrgs(root);
+    return;
+  }
+
+  if (bareHash === '#/platform/orgs' && hash.includes('?view=')) {
+    if (!platformToken) {
+      window.location.hash = '#/platform/login';
+      return;
+    }
+    renderPlatformOrgDetail(root);
+    return;
+  }
+
+  if (bareHash === '#/platform/ledger') {
+    if (!platformToken) {
+      window.location.hash = '#/platform/login';
+      return;
+    }
+    renderPlatformLedger(root);
+    return;
+  }
+
+  // Normal auth routes
   if (!user) {
     if (hash !== '#/login' && hash !== '#/signup' && hash !== '#/' && bareHash !== '#/forgot-password' && bareHash !== '#/reset-password') {
       window.location.hash = '#/login';

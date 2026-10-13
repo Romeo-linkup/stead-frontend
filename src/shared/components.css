@@ -199,6 +199,237 @@ table.list td { padding: 10px; border-bottom: 1px solid var(--line); }
 .kpi .lbl { font-size: 11px; color: var(--slate); }
 .score-bar { width: 100%; height: 5px; background: var(--paper2); border-radius: 3px; margin-top: 4px; overflow: hidden; }
 .score-bar > div { height: 100%; background: var(--brass); }
+
+/* Platform admin nav */
+.platform-nav {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  font-size: 13px;
+}
+.platform-nav a {
+  color: var(--ink);
+  text-decoration: none;
+  font-weight: 500;
+}
+.platform-nav a:hover {
+  color: var(--brass);
+}
+.platform-nav a.active {
+  color: var(--brass);
+  font-weight: 700;
+}
+.platform-nav #platform-signout {
+  color: #D68A78;
+}
+.platform-nav #platform-signout:hover {
+  color: #B85C4E;
+}
+@media (max-width: 600px) {
+  .platform-nav {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+}
+
+/* Platform overview styles */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.kpi-card {
+  background: var(--paper2);
+  padding: 16px;
+  border-radius: 8px;
+}
+.kpi-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--brass);
+}
+.kpi-label {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.bar-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.bar-label {
+  min-width: 70px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.bar-value {
+  min-width: 30px;
+  font-size: 12px;
+  text-align: right;
+  font-weight: 600;
+}
+
+/* Platform orgs styles */
+.orgs-filters {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.orgs-filters .field {
+  flex: 1;
+  min-width: 150px;
+}
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 16px;
+}
+.status-badge {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.status-badge.active {
+  background: #e6f4ea;
+  color: #1e7e34;
+}
+.status-badge.suspended {
+  background: #fce8e6;
+  color: #dc3545;
+}
+
+/* Platform org detail styles */
+.org-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.org-status {
+  font-size: 14px;
+  font-weight: 600;
+}
+.org-actions {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.note-item {
+  background: var(--paper2);
+  padding: 12px;
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+.note-date {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.note-text {
+  font-size: 14px;
+}
+.add-note-form {
+  margin-top: 12px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.add-note-form textarea {
+  flex: 1;
+  min-height: 60px;
+  resize: vertical;
+}
+.audit-filters {
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+.audit-filters .field {
+  min-width: 120px;
+}
+
+/* Modal styles */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.modal-content {
+  background: var(--paper);
+  padding: 24px;
+  border-radius: 8px;
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.modal-content h3 {
+  margin-top: 0;
+}
+.modal-content textarea {
+  width: 100%;
+  min-height: 100px;
+  margin: 12px 0;
+  resize: vertical;
+}
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+/* Platform ledger styles */
+.ledger-actions {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.ledger-filters {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.ledger-filters .field {
+  min-width: 120px;
+}
+.verify-success {
+  background: #e6f4ea;
+  color: #1e7e34;
+  padding: 12px;
+  border-radius: 6px;
+  margin-bottom: 16px;
+}
+.verify-error {
+  background: #fce8e6;
+  color: #dc3545;
+  padding: 12px;
+  border-radius: 6px;
+  margin-bottom: 16px;
+}
+.verify-success code,
+.verify-error code {
+  background: rgba(255,255,255,0.5);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: monospace;
+}
 table.simple { width: 100%; border-collapse: collapse; font-size: 12px; }
 table.simple th { text-align: left; color: var(--slate); font-weight: 600; padding: 7px 5px; border-bottom: 1px solid var(--line); white-space: nowrap; }
 table.simple td { padding: 9px 5px; border-bottom: 1px solid var(--line); vertical-align: middle; }

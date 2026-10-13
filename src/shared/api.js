@@ -25,6 +25,11 @@ export async function apiFetch(path, { method = 'GET', body, auth = true, isForm
   }
 
   const data = await res.json().catch(() => ({}));
+  if (res.status === 403 && (data.code === 'ORG_SUSPENDED' || data.code === 'ORG_SCOPE_SUSPENDED')) {
+    logout();
+    window.location.hash = '#/login';
+    throw new Error(data.error || 'Account suspended. Please contact support.');
+  }
   if (!res.ok) {
     throw new Error(data.error || `Request failed (${res.status})`);
   }
