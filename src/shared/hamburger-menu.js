@@ -4,6 +4,7 @@ import { apiFetch } from './api.js';
 import { getThemePreference, setThemePreference } from './theme.js';
 import { logoSvg } from './logo.js';
 import { canInstall, promptInstall, isStandalone, isIos } from './pwa.js';
+import { canActOrgWide, seeMultipleDistricts, userDistrictIds } from './scope.js';
 
 // Cached across page navigations within a session, so every renderShell()
 // call doesn't refetch the business name on every hash change.

@@ -24,22 +24,28 @@ export async function renderProperties(root) {
 async function renderAddProperty(content, isOwner) {
 	const container = content.querySelector('#add-property-card');
 	let districtOptions = '';
-	if (isOwner) {
-		try {
-			const districts = await apiFetch('/districts');
+	let districts = [];
+	let showDistrictChooser = false;
+	try {
+		districts = await apiFetch('/districts');
+		if (districts.length > 1) {
+			showDistrictChooser = true;
 			districtOptions = districts
 				.map((d) => `<option value="${escapeAttr(d.id)}">${escapeHtml(d.name)}</option>`)
 				.join('');
-		} catch (err) {
-			districtOptions = '';
+		} else {
+			showDistrictChooser = false;
 		}
+	} catch (err) {
+		districtOptions = '';
+		showDistrictChooser = false;
 	}
 
 	container.innerHTML = `
 		<details class="card" open>
 			<summary class="serif" style="cursor:pointer;">Add property</summary>
 			<form id="add-property-form" style="margin-top:10px;">
-				${isOwner ? `
+				${showDistrictChooser ? `
 				<div class="field">
 					<label class="field-label" for="ap-district">District</label>
 					<select class="field" id="ap-district" required>${districtOptions}</select>
@@ -95,7 +101,14 @@ async function renderAddProperty(content, isOwner) {
 
 		button.disabled = true;
 		try {
-			const districtId = isOwner ? Number(form.querySelector('#ap-district').value) : null;
+			let districtId = null;
+			if (showDistrictChooser) {
+				districtId = Number(form.querySelector('#ap-district').value) || null;
+			} else if (districts && districts.length === 1) {
+				districtId = districts[0].id;
+			} else {
+				districtId = null;
+			}
 			const property = await apiFetch('/properties', {
 				method: 'POST',
 				body: { district_id: districtId, name, address },

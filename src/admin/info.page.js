@@ -21,7 +21,10 @@ export function renderInfo(root) {
 			<h2>Property info</h2>
 			<p>What tenants and service providers see on their information pages</p>
 		</div>
-		${isOwner ? '<div class="field"><label class="field-label" for="info-district">District</label><select class="field" id="info-district"></select></div>' : ''}
+		<div id="info-district-wrapper" style="display:none;" class="field">
+			<label class="field-label" for="info-district">District</label>
+			<select class="field" id="info-district"></select>
+		</div>
 		<div id="info-sections">
 			${SECTIONS.map((section) => `
 				<div class="card" data-section="${section.key}">
@@ -39,40 +42,39 @@ export function renderInfo(root) {
 	`;
 
 	const districtSelect = content.querySelector('#info-district');
-	if (isOwner) {
-		districtSelect.addEventListener('change', () => loadSections(content, districtSelect.value, true));
-	}
+	const districtWrapper = content.querySelector('#info-district-wrapper');
+	districtSelect.addEventListener('change', () => loadSections(content, districtSelect.value, true));
 	content.querySelectorAll('[data-save], [data-reset]').forEach((button) => {
 		button.addEventListener('click', () => saveSection(content, button, isOwner));
 	});
 
-	if (isOwner) {
-		loadOwnerDistricts(content);
-	} else {
-		loadSections(content, null, false);
-	}
+	loadDistrictsAndSections(content, districtSelect, districtWrapper);
 }
 
-async function loadOwnerDistricts(content) {
-	const select = content.querySelector('#info-district');
+async function loadDistrictsAndSections(content, districtSelect, districtWrapper) {
+	const isOwner = getCurrentUser()?.role === 'owner';
 	try {
 		const districts = await apiFetch('/districts');
-		select.innerHTML = districts.map((district) =>
-			`<option value="${escapeAttr(district.id)}">${escapeHtml(district.name)}</option>`
-		).join('');
-		if (!districts.length) {
-			toast('No districts available.');
-			return;
+		if (districts.length > 1) {
+			districtWrapper.style.display = '';
+			districtSelect.innerHTML = districts.map((district) =>
+				`<option value="${escapeAttr(district.id)}">${escapeHtml(district.name)}</option>`
+			).join('');
+			districtSelect.value = String(districts[0].id);
+			await loadSections(content, districtSelect.value, true);
+		} else {
+			districtWrapper.style.display = 'none';
+			await loadSections(content, districts.length === 1 ? String(districts[0].id) : null, true);
 		}
-		select.value = String(districts[0].id);
-		await loadSections(content, select.value, true);
 	} catch (err) {
 		toast(err.message || 'Could not load districts.');
+		await loadSections(content, null, false);
 	}
 }
 
 async function loadSections(content, districtId, isOwner) {
-	const query = isOwner ? `?district_id=${encodeURIComponent(districtId)}` : '';
+	const hasDistrict = districtId != null && districtId !== '';
+	const query = hasDistrict ? `?district_id=${encodeURIComponent(districtId)}` : '';
 	try {
 		const data = await apiFetch(`/district-info${query}`);
 		for (const section of SECTIONS) {
@@ -91,9 +93,13 @@ async function saveSection(content, button, isOwner) {
 	const districtId = content.querySelector('#info-district')?.value;
 	button.disabled = true;
 	try {
+		const payload = { body };
+		if (districtId != null && districtId !== '') {
+			payload.district_id = Number(districtId);
+		}
 		await apiFetch(`/district-info/${key}`, {
 			method: 'PUT',
-			body: { body, ...(isOwner ? { district_id: Number(districtId) } : {}) },
+			body: payload,
 		});
 		toast('Saved.');
 		if (button.hasAttribute('data-reset')) {

@@ -13,6 +13,7 @@ const CREATABLE_ROLES = {
     { value: 'tenant', label: 'Tenant' },
   ],
   admin: [
+    { value: 'admin', label: 'Admin' },
     { value: 'service_provider', label: 'Service Provider' },
     { value: 'tenant', label: 'Tenant' },
   ],
@@ -33,14 +34,21 @@ export async function renderCodes(root) {
   const content = renderShell(root, { activeHref: '#/admin/codes', title: 'Codes' });
   const user = getCurrentUser();
   const roleOptions = CREATABLE_ROLES[user?.role] || [];
+  let me = user;
+  let allDistricts = [];
+  let allDistrictsLoaded = false;
+  let createdCodeInfo = null;
+  let editingCodeId = null;
+  let codesListCache = [];
 
   content.innerHTML = `
     <div class="pagehead">
       <h2>Codes &amp; roles</h2>
-      <p>Generated per district — share the relevant code with each group</p>
+      <p>Share each code with the person it was made for</p>
     </div>
     <div class="card">
       <h3 class="serif" style="margin-top:0;">Generate a code</h3>
+      <div id="code-created-card" style="margin-bottom:12px; display:none;"></div>
       <form id="new-code-form">
         <label class="field-label" for="code-role">Role</label>
         <select class="field" id="code-role" name="role" required>
@@ -49,6 +57,17 @@ export async function renderCodes(root) {
         <div id="district-field">
           <label class="field-label" for="code-district">District</label>
           <select class="field" id="code-district" name="district_id" required></select>
+        </div>
+        <div id="admin-districts-box" style="display:none; margin:8px 0;">
+          <div class="small" style="margin-bottom:6px;"><b>District access</b></div>
+          <div id="admin-districts-list" style="display:flex; flex-direction:column; gap:4px;"></div>
+          <div id="admin-all-districts-wrapper" style="margin-top:6px; display:none;">
+            <label style="display:flex; align-items:center; gap:6px;">
+              <input type="checkbox" id="admin-all-districts" name="admin_all_districts">
+              <span class="small">All districts (including ones added later)</span>
+            </label>
+          </div>
+          <div class="small muted" id="admin-districts-summary" style="margin-top:6px;">Access to 0 districts</div>
         </div>
         <div id="unit-field" style="display:none;">
           <label class="field-label" for="code-unit">Unit</label>
@@ -70,16 +89,31 @@ export async function renderCodes(root) {
 
   async function loadDistrictOptions() {
     try {
-      const districts = await apiFetch('/districts');
+      const [districts, meData] = await Promise.all([
+        apiFetch('/districts'),
+        apiFetch('/users/me').catch(() => null),
+      ]);
+      if (meData) me = meData;
+      allDistricts = districts;
+      allDistrictsLoaded = true;
       districtNames = new Map(districts.map((district) => [Number(district.id), district.name]));
-      if (user.role === 'owner') {
+      const isOwner = (me?.role || user?.role) === 'owner';
+      const isAdmin = (me?.role || user?.role) === 'admin';
+      const isPropertyManager = (me?.role || user?.role) === 'property_manager';
+      const currentUser = me || user;
+      if (isOwner || isAdmin) {
         districtSelect.innerHTML = districts
           .map((d) => `<option value="${escapeAttr(d.id)}">${escapeHtml(d.name)}</option>`)
           .join('');
         districtSelect.disabled = false;
+      } else if (isPropertyManager) {
+        const mine = districts.find((d) => d.id === currentUser.district_id) || districts[0];
+        districtSelect.innerHTML = mine
+          ? `<option value="${escapeAttr(mine.id)}">${escapeHtml(mine.name)}</option>`
+          : '';
+        districtSelect.disabled = true;
       } else {
-        // admin/property_manager are locked to their own district
-        const mine = districts.find((d) => d.id === user.district_id) || districts[0];
+        const mine = districts.find((d) => d.id === currentUser.district_id) || districts[0];
         districtSelect.innerHTML = mine
           ? `<option value="${escapeAttr(mine.id)}">${escapeHtml(mine.name)}</option>`
           : '';

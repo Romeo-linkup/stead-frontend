@@ -26,10 +26,10 @@ export async function renderNotices(root) {
 					<option value="tenants">Tenants only</option>
 					<option value="providers">Service providers only</option>
 				</select>
-				${isOwner ? `
+				<div id="notice-district-wrapper" style="display:none;">
 					<label class="field-label" for="notice-district">District</label>
 					<select class="field" id="notice-district"><option value="">All districts</option></select>
-				` : ''}
+				</div>
 				<button class="btn brass block" type="submit">Post notice</button>
 			</form>
 		</div>
@@ -39,41 +39,51 @@ export async function renderNotices(root) {
 		<div id="move-out-notices-list"></div>
 	`;
 
-	content.querySelector('#notice-form').addEventListener('submit', (event) => postNotice(event, content, isOwner));
-	if (isOwner) loadDistricts(content);
+	content.querySelector('#notice-form').addEventListener('submit', (event) => postNotice(event, content));
+	loadDistricts(content);
 	await Promise.all([loadNotices(content), loadMoveOutNotices(content)]);
 }
 
 async function loadDistricts(content) {
 	const select = content.querySelector('#notice-district');
+	const wrapper = content.querySelector('#notice-district-wrapper');
 	try {
 		const districts = await apiFetch('/districts');
-		select.innerHTML = '<option value="">All districts</option>' + districts.map((district) =>
-			`<option value="${escapeHtml(district.id)}">${escapeHtml(district.name)}</option>`
-		).join('');
+		if (districts.length > 1) {
+			wrapper.style.display = '';
+			select.innerHTML = '<option value="">All districts</option>' + districts.map((district) =>
+				`<option value="${escapeHtml(district.id)}">${escapeHtml(district.name)}</option>`
+			).join('');
+		} else {
+			wrapper.style.display = 'none';
+		}
 	} catch (err) {
 		toast(err.message || 'Could not load districts.');
 	}
 }
 
-async function postNotice(event, content, isOwner) {
+async function postNotice(event, content) {
 	event.preventDefault();
 	const form = event.currentTarget;
 	const button = form.querySelector('button[type="submit"]');
 	const districtSelect = content.querySelector('#notice-district');
+	const districtWrapper = content.querySelector('#notice-district-wrapper');
 	button.disabled = true;
 	try {
+		const body = {
+			title: form.querySelector('#notice-title').value,
+			body: form.querySelector('#notice-body').value,
+			audience: form.querySelector('#notice-audience').value,
+		};
+		if (districtWrapper && districtWrapper.style.display !== 'none') {
+			body.district_id = districtSelect.value ? Number(districtSelect.value) : null;
+		}
 		await apiFetch('/notices', {
 			method: 'POST',
-			body: {
-				title: form.querySelector('#notice-title').value,
-				body: form.querySelector('#notice-body').value,
-				audience: form.querySelector('#notice-audience').value,
-				...(isOwner ? { district_id: districtSelect.value ? Number(districtSelect.value) : null } : {}),
-			},
+			body,
 		});
 		form.reset();
-		if (isOwner && districtSelect) districtSelect.value = '';
+		if (districtSelect) districtSelect.value = '';
 		toast('Notice posted.');
 		await loadNotices(content);
 	} catch (err) {
