@@ -5,11 +5,21 @@ import { parseUnitNumbers } from '../shared/units.js';
 import { getCurrentUser } from '../auth/session.js';
 
 const scoreOf = p => p.current_score ?? p.score_percent;
+const isManagementRole = (role) => ['owner', 'admin', 'property_manager'].includes(role);
+
+function isCloudinaryUrl(url) {
+  return typeof url === 'string' && url.startsWith('https://res.cloudinary.com/');
+}
+
+function renderPhotoPlaceholder() {
+  return `<div class="prop-photo" style="display:flex;align-items:center;justify-content:center;color:var(--slate);font-size:10px;">No photo</div>`;
+}
 
 export async function renderProperties(root) {
 	const content = renderShell(root, { activeHref: '#/admin/properties', title: 'Properties' });
 	const user = getCurrentUser();
 	const isOwner = user?.role === 'owner';
+	const canManagePhotos = isManagementRole(user?.role);
 
 	content.innerHTML = `
 		<div class="pagehead"><h2>Properties</h2><p>Evaluate every property. District and overall scores are calculated automatically once all of their properties have been evaluated.</p></div>
@@ -18,7 +28,7 @@ export async function renderProperties(root) {
 	`;
 
 	await renderAddProperty(content, isOwner);
-	await loadPropertiesData(content);
+	await loadPropertiesData(content, canManagePhotos);
 }
 
 async function renderAddProperty(content, isOwner) {
@@ -133,7 +143,7 @@ async function renderAddProperty(content, isOwner) {
 	});
 }
 
-async function loadPropertiesData(content) {
+async function loadPropertiesData(content, canManagePhotos) {
 	const container = content.querySelector('#properties-content');
 	try {
 		const [properties, summary, units] = await Promise.all([
@@ -198,11 +208,14 @@ async function loadPropertiesData(content) {
 				const scoreDate = property.score_created_at ? new Date(property.score_created_at).toLocaleDateString('en-ZA') : '';
 				const buttonText = score !== null ? 'Re-evaluate' : 'Evaluate';
 				const propertyUnits = unitsByProperty[property.id] || [];
+				const hasPhoto = isCloudinaryUrl(property.image_thumb_url);
+				const thumbSrc = hasPhoto ? property.image_thumb_url : null;
 
 				html += `
-					<div class="card">
+					<div class="card" data-property-id="${escapeAttr(property.id)}">
 						<div class="row">
-							<div>
+							${thumbSrc ? `<img class="prop-photo" src="${escapeAttr(thumbSrc)}" alt="${escapeAttr(property.name)}" loading="lazy">` : renderPhotoPlaceholder()}
+							<div style="flex:1; min-width:0;">
 								<b class="serif">${escapeHtml(property.name)}</b>
 								<div class="small muted">${escapeHtml(property.address || 'No address recorded')} · ${property.unit_count} unit(s)</div>
 							</div>
@@ -224,6 +237,7 @@ async function loadPropertiesData(content) {
 							<button class="btn brass" type="submit">${buttonText}</button>
 						</form>
 						${renderUnitsDisclosure(property, propertyUnits)}
+						${canManagePhotos ? renderPhotoActions(property, hasPhoto) : ''}
 					</div>
 				`;
 			});
@@ -256,7 +270,7 @@ async function loadPropertiesData(content) {
 						},
 					});
 					toast('Evaluation saved.');
-					await loadPropertiesData(content);
+					await loadPropertiesData(content, canManagePhotos);
 					window.scrollTo(0, scrollY);
 				} catch (err) {
 					toast(err.message || 'Could not save evaluation.');
@@ -266,6 +280,7 @@ async function loadPropertiesData(content) {
 		});
 
 		wireUnitsEvents(content);
+		wirePhotoEvents(content);
 	} catch (err) {
 		container.innerHTML = `<div class="card"><p class="error-text">${escapeHtml(err.message)}</p></div>`;
 	}
@@ -463,6 +478,80 @@ async function refreshUnits(card) {
 	} catch (err) {
 		// leave the existing units list in place
 	}
+}
+
+function renderPhotoActions(property, hasPhoto) {
+	const addBtnLabel = hasPhoto ? 'Change photo' : 'Add photo';
+	return `
+		<div class="photo-actions">
+			<label class="btn secondary sm" style="cursor:pointer;">
+				${addBtnLabel}
+				<input type="file" accept="image/jpeg,image/png,image/webp" class="photo-input" data-property-id="${escapeAttr(property.id)}" style="display:none;">
+			</label>
+			${hasPhoto ? `<button type="button" class="btn danger sm photo-remove-btn" data-property-id="${escapeAttr(property.id)}">Remove photo</button>` : ''}
+		</div>
+	`;
+}
+
+function wirePhotoEvents(content) {
+	content.querySelectorAll('.photo-input').forEach(input => {
+		input.addEventListener('change', async (e) => {
+			const file = e.target.files[0];
+			if (!file) return;
+			const propertyId = input.dataset.propertyId;
+			const card = content.querySelector(`[data-property-id="${escapeAttr(propertyId)}"]`);
+			const btn = input.closest('label');
+
+			if (file.size > 5 * 1024 * 1024) {
+				toast('File too large. Maximum size is 5 MB.');
+				input.value = '';
+				return;
+			}
+			if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+				toast('Invalid file type. Only JPEG, PNG, and WebP are allowed.');
+				input.value = '';
+				return;
+			}
+
+			btn.disabled = true;
+			const formData = new FormData();
+			formData.append('image', file);
+
+			try {
+				await apiFetch(`/properties/${encodeURIComponent(propertyId)}/image`, {
+					method: 'POST',
+					body: formData,
+					isFormData: true,
+				});
+				toast('Photo updated.');
+				await loadPropertiesData(content, true);
+			} catch (err) {
+				toast(err.message || 'Could not update photo.');
+			} finally {
+				btn.disabled = false;
+				input.value = '';
+			}
+		});
+	});
+
+	content.querySelectorAll('.photo-remove-btn').forEach(btn => {
+		btn.addEventListener('click', async () => {
+			const propertyId = btn.dataset.propertyId;
+			if (!confirm('Remove this photo?')) return;
+			btn.disabled = true;
+			try {
+				await apiFetch(`/properties/${encodeURIComponent(propertyId)}/image`, {
+					method: 'DELETE',
+				});
+				toast('Photo removed.');
+				await loadPropertiesData(content, true);
+			} catch (err) {
+				toast(err.message || 'Could not remove photo.');
+			} finally {
+				btn.disabled = false;
+			}
+		});
+	});
 }
 
 function groupBy(array, key) {
