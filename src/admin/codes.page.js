@@ -41,9 +41,9 @@ export async function renderCodes(root) {
   let editingCodeId = null;
   let codesListCache = [];
 
-  content.innerHTML = `
+content.innerHTML = `
     <div class="pagehead">
-      <h2>Codes &amp; roles</h2>
+      <h2>Codes & roles</h2>
       <p>Share each code with the person it was made for</p>
     </div>
     <div class="card">
@@ -74,7 +74,7 @@ export async function renderCodes(root) {
           <select class="field" id="code-unit" name="unit_id"></select>
         </div>
         <div id="code-error" class="error-text" style="display:none;"></div>
-        <button class="btn brass" type="submit">Generate code</button>
+        <button class="btn brass" id="generate-btn" type="submit">Generate code</button>
       </form>
     </div>
     <b class="small" style="display:block; margin:14px 0 8px;">Issued codes</b>
@@ -119,9 +119,71 @@ export async function renderCodes(root) {
           : '';
         districtSelect.disabled = true;
       }
+      renderAdminDistrictsBox();
     } catch (err) {
       districtSelect.innerHTML = '';
     }
+  }
+
+  function renderAdminDistrictsBox() {
+    const adminBox = content.querySelector('#admin-districts-box');
+    const adminList = content.querySelector('#admin-districts-list');
+    const allWrapper = content.querySelector('#admin-all-districts-wrapper');
+    const allCheckbox = content.querySelector('#admin-all-districts');
+    const summary = content.querySelector('#admin-districts-summary');
+    const role = content.querySelector('#code-role').value;
+    const isOwner = (me?.role || user?.role) === 'owner';
+    const hasAllDistricts = me?.all_districts === true;
+
+    if (role !== 'admin') {
+      adminBox.style.display = 'none';
+      content.querySelector('#district-field').style.display = 'block';
+      return;
+    }
+
+    content.querySelector('#district-field').style.display = 'none';
+    adminBox.style.display = 'block';
+
+    const showAllOption = isOwner || hasAllDistricts;
+    allWrapper.style.display = showAllOption ? 'block' : 'none';
+
+    adminList.innerHTML = allDistricts
+      .map((d) => `
+        <label style="display:flex; align-items:center; gap:6px;">
+          <input type="checkbox" class="admin-district-checkbox" value="${escapeAttr(d.id)}" data-name="${escapeAttr(d.name)}">
+          <span class="small">${escapeHtml(d.name)}</span>
+        </label>
+      `).join('');
+
+    allCheckbox.checked = false;
+    adminList.querySelectorAll('.admin-district-checkbox').forEach((cb) => {
+      cb.checked = false;
+      cb.disabled = false;
+    });
+
+    function updateSummary() {
+      if (allCheckbox.checked) {
+        summary.textContent = 'Access to all districts';
+      } else {
+        const checked = adminList.querySelectorAll('.admin-district-checkbox:checked');
+        summary.textContent = `Access to ${checked.length} district${checked.length !== 1 ? 's' : ''}`;
+      }
+    }
+
+    allCheckbox.addEventListener('change', () => {
+      const checkboxes = adminList.querySelectorAll('.admin-district-checkbox');
+      checkboxes.forEach((cb) => {
+        cb.checked = false;
+        cb.disabled = allCheckbox.checked;
+      });
+      updateSummary();
+    });
+
+    adminList.querySelectorAll('.admin-district-checkbox').forEach((cb) => {
+      cb.addEventListener('change', updateSummary);
+    });
+
+    updateSummary();
   }
 
   async function loadUnits() {
@@ -204,6 +266,7 @@ export async function renderCodes(root) {
 
   content.querySelector('#code-role').addEventListener('change', () => {
     refreshUnitOptions();
+    renderAdminDistrictsBox();
   });
   districtSelect.addEventListener('change', () => {
     refreshUnitOptions();
@@ -213,15 +276,36 @@ export async function renderCodes(root) {
     e.preventDefault();
     const form = e.target;
     const errorBox = content.querySelector('#code-error');
+    const generateBtn = content.querySelector('#generate-btn');
     errorBox.style.display = 'none';
     const role = form.role.value;
-    const body = {
-      role,
-      district_id: Number(form.district_id.value) || undefined,
-    };
-    if (role === 'tenant') {
-      body.unit_id = Number(form.unit_id.value) || undefined;
+    let body = { role };
+
+    if (role === 'admin') {
+      const adminList = content.querySelector('#admin-districts-list');
+      const allCheckbox = content.querySelector('#admin-all-districts');
+      const allDistrictsChecked = allCheckbox?.checked ?? false;
+      const selectedCheckboxes = adminList?.querySelectorAll('.admin-district-checkbox:checked') ?? [];
+      const districtIds = Array.from(selectedCheckboxes).map((cb) => Number(cb.value));
+
+      if (!allDistrictsChecked && districtIds.length === 0) {
+        toast('Choose at least one district.');
+        return;
+      }
+
+      body.districts = districtIds;
+      body.all_districts = allDistrictsChecked;
+    } else {
+      body.district_id = Number(form.district_id.value) || undefined;
+      if (role === 'tenant') {
+        body.unit_id = Number(form.unit_id.value) || undefined;
+      }
     }
+
+    const originalLabel = generateBtn.textContent;
+    generateBtn.disabled = true;
+    generateBtn.textContent = 'Generating...';
+
     try {
       await apiFetch('/codes', { method: 'POST', body });
       toast('Code generated.');
@@ -230,6 +314,9 @@ export async function renderCodes(root) {
       toast(err.message || 'Could not generate code.');
       errorBox.textContent = err.message;
       errorBox.style.display = 'block';
+    } finally {
+      generateBtn.disabled = false;
+      generateBtn.textContent = originalLabel;
     }
   });
 
