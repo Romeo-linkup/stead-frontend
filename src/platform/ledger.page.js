@@ -1,5 +1,6 @@
 // src/platform/ledger.page.js
-import { platformFetch, platformFetchBlob, saveBlob } from './api.js';
+import { platformFetch, platformFetchBlob } from './api.js';
+import { saveBlob } from '../shared/api.js';
 import { renderPlatformShell } from './shell.js';
 
 function escapeHtml(text) {
