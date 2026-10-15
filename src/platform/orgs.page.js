@@ -1,12 +1,7 @@
 // src/platform/orgs.page.js
 import { platformFetch } from './api.js';
 import { renderPlatformShell } from './shell.js';
-
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
+import { escapeHtml, debounce } from './format.js';
 
 export function renderPlatformOrgs(root) {
   const content = renderPlatformShell(root, { activeHref: '#/platform/orgs', title: 'Stead platform' });
@@ -39,11 +34,11 @@ export function renderPlatformOrgs(root) {
               <th>Name</th>
               <th>Owner</th>
               <th>Status</th>
-              <th>Districts</th>
-              <th>Properties</th>
-              <th>Units</th>
-              <th>Users</th>
-              <th>Active codes</th>
+              <th class="num">Districts</th>
+              <th class="num">Properties</th>
+              <th class="num">Units</th>
+              <th class="num">Users</th>
+              <th class="num">Active codes</th>
               <th>Last activity</th>
             </tr>
           </thead>
@@ -72,8 +67,10 @@ export function renderPlatformOrgs(root) {
 
   let currentPage = 1;
   let currentFilters = { search: '', status: '', sort: 'created_at' };
+  let requestId = 0;
 
   async function loadOrgs() {
+    const currentRequestId = ++requestId;
     try {
       const params = new URLSearchParams({
         search: currentFilters.search,
@@ -84,32 +81,38 @@ export function renderPlatformOrgs(root) {
 
       const data = await platformFetch(`/platform/orgs?${params}`);
 
+      if (currentRequestId !== requestId) return;
+
       loading.style.display = 'none';
       orgsContent.style.display = 'block';
 
-      orgsTable.innerHTML = data.orgs.map(org => {
-        const totalUsers = (parseInt(org.admins) || 0) +
-                          (parseInt(org.property_managers) || 0) +
-                          (parseInt(org.service_providers) || 0) +
-                          (parseInt(org.tenants) || 0);
-        const lastActivity = org.last_activity_at
-          ? new Date(org.last_activity_at).toLocaleDateString()
-          : 'Never';
+      if (data.orgs.length === 0) {
+        orgsTable.innerHTML = '<tr><td colspan="9" class="muted">No organisations found</td></tr>';
+      } else {
+        orgsTable.innerHTML = data.orgs.map(org => {
+          const totalUsers = (parseInt(org.admins) || 0) +
+                            (parseInt(org.property_managers) || 0) +
+                            (parseInt(org.service_providers) || 0) +
+                            (parseInt(org.tenants) || 0);
+          const lastActivity = org.last_activity_at
+            ? new Date(org.last_activity_at).toLocaleDateString()
+            : 'Never';
 
-        return `
-          <tr>
-            <td><a href="#/platform/orgs?view=${org.id}">${escapeHtml(org.name)}</a></td>
-            <td>${escapeHtml(org.owner_email || '-')}</td>
-            <td><span class="status-badge ${org.status}">${escapeHtml(org.status)}</span></td>
-            <td>${org.districts}</td>
-            <td>${org.properties}</td>
-            <td>${org.units}</td>
-            <td>${totalUsers}</td>
-            <td>${org.active_codes}</td>
-            <td>${lastActivity}</td>
-          </tr>
-        `;
-      }).join('');
+          return `
+            <tr>
+              <td><a href="#/platform/orgs?view=${org.id}">${escapeHtml(org.name)}</a></td>
+              <td>${escapeHtml(org.owner_email || '-')}</td>
+              <td><span class="status-badge ${org.status}">${escapeHtml(org.status)}</span></td>
+              <td class="num">${org.districts}</td>
+              <td class="num">${org.properties}</td>
+              <td class="num">${org.units}</td>
+              <td class="num">${totalUsers}</td>
+              <td class="num">${org.active_codes}</td>
+              <td>${lastActivity}</td>
+            </tr>
+          `;
+        }).join('');
+      }
 
       const totalPages = Math.ceil(data.total / data.per_page);
       pageInfo.textContent = `Page ${currentPage} of ${totalPages || 1}`;
@@ -122,11 +125,11 @@ export function renderPlatformOrgs(root) {
     }
   }
 
-  searchInput.addEventListener('input', (e) => {
+  searchInput.addEventListener('input', debounce((e) => {
     currentFilters.search = e.target.value;
     currentPage = 1;
     loadOrgs();
-  });
+  }, 300));
 
   statusSelect.addEventListener('change', (e) => {
     currentFilters.status = e.target.value;

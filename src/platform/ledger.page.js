@@ -2,12 +2,7 @@
 import { platformFetch, platformFetchBlob } from './api.js';
 import { saveBlob } from '../shared/api.js';
 import { renderPlatformShell } from './shell.js';
-
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
+import { escapeHtml } from './format.js';
 
 export function renderPlatformLedger(root) {
   const content = renderPlatformShell(root, { activeHref: '#/platform/ledger', title: 'Stead platform' });
@@ -38,11 +33,11 @@ export function renderPlatformLedger(root) {
         <table class="data-table">
           <thead>
             <tr>
-              <th>ID</th>
+              <th class="num">ID</th>
               <th>Time</th>
               <th>Actor type</th>
-              <th>Actor ID</th>
-              <th>Org ID</th>
+              <th class="num">Actor ID</th>
+              <th class="num">Org ID</th>
               <th>Org name</th>
               <th>Event type</th>
               <th>Detail</th>
@@ -115,14 +110,14 @@ export function renderPlatformLedger(root) {
 
       ledgerTable.innerHTML = data.ledger.map(entry => `
         <tr>
-          <td>${entry.id}</td>
+          <td class="num">${escapeHtml(String(entry.id))}</td>
           <td>${new Date(entry.occurred_at).toLocaleString()}</td>
           <td>${escapeHtml(entry.actor_type)}</td>
-          <td>${entry.actor_id || '-'}</td>
-          <td>${entry.organization_id || '-'}</td>
+          <td class="num">${escapeHtml(String(entry.actor_id || '-'))}</td>
+          <td class="num">${escapeHtml(String(entry.organization_id || '-'))}</td>
           <td>${escapeHtml(entry.organization_name || '-')}</td>
           <td>${escapeHtml(entry.event_type)}</td>
-          <td>${escapeHtml(JSON.stringify(entry.detail))}</td>
+          <td class="cell-detail">${escapeHtml(JSON.stringify(entry.detail))}</td>
         </tr>
       `).join('');
 
@@ -149,7 +144,7 @@ export function renderPlatformLedger(root) {
           <div class="verify-success">
             <strong>✓ Chain verified</strong><br>
             Checked ${data.checked} entries<br>
-            Head hash: <code>${data.head_hash || 'none'}</code> (ID: ${data.head_id || 'none'})
+            Head hash: <code>${escapeHtml(String(data.head_hash || 'none'))}</code> (ID: ${escapeHtml(String(data.head_id || 'none'))})
             <button class="btn secondary sm" id="copy-hash">Copy hash</button>
           </div>
         `;
@@ -161,7 +156,7 @@ export function renderPlatformLedger(root) {
           <div class="verify-error">
             <strong>✗ Chain verification failed</strong><br>
             Checked ${data.checked} entries<br>
-            First bad ID: ${data.firstBadId}
+            First bad ID: ${escapeHtml(String(data.firstBadId))}
           </div>
         `;
       }

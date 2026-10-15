@@ -1,0 +1,115 @@
+/* src/styles/platform.css — platform admin only. All classes are .pf-* or scoped under .pf-main
+   so nothing here touches the tenant/admin/provider UI.
+   Replace the var() fallbacks with the real names from tokens.css. */
+
+.pf-shell { min-height: 100vh; background: var(--paper); color: var(--ink); }
+
+/* ---------- Header ---------- */
+.pf-header {
+  position: sticky; top: 0; z-index: 20;
+  background: var(--paper);
+  border-bottom: 1px solid var(--line);
+  padding-top: env(safe-area-inset-top, 0px);
+}
+.pf-header-inner {
+  max-width: 1100px; margin: 0 auto; padding: 8px 16px;
+  display: grid; grid-template-columns: auto 1fr auto;
+  grid-template-areas: "brand nav signout";
+  align-items: center; gap: 4px 24px;
+}
+.pf-brand { grid-area: brand; display: flex; align-items: center; gap: 10px; color: inherit; text-decoration: none; }
+.pf-logo { display: inline-flex; }
+.pf-brand-text { font-size: 1.25rem; font-weight: 600; white-space: nowrap; }
+.pf-nav { grid-area: nav; display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+.pf-nav::-webkit-scrollbar { display: none; }
+.pf-nav a {
+  display: inline-flex; align-items: center; min-height: 44px; padding: 0 12px;
+  color: var(--slate); text-decoration: none; font-weight: 500; white-space: nowrap;
+  border-bottom: 2px solid transparent;
+}
+.pf-nav a:hover { color: var(--ink); }
+.pf-nav a.active { color: var(--brass); border-bottom-color: var(--brass); font-weight: 600; }
+.pf-signout {
+  grid-area: signout; min-height: 44px; padding: 0 14px; cursor: pointer;
+  background: transparent; color: var(--rust);
+  border: 1px solid var(--line); font: inherit; font-weight: 500;
+}
+.pf-signout:hover { border-color: var(--rust); }
+
+@media (max-width: 720px) {
+  .pf-header-inner { grid-template-columns: 1fr auto; grid-template-areas: "brand signout" "nav nav"; gap: 0 12px; }
+  .pf-signout { min-height: 40px; }
+}
+
+/* ---------- Page container ---------- */
+.pf-main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
+.pf-main h2 { font-family: var(--font-serif, 'Newsreader', serif); font-size: 1.75rem; margin: 0 0 16px; }
+.pf-main h3 { font-family: var(--font-serif, 'Newsreader', serif); font-size: 1.2rem; margin: 32px 0 12px; }
+.pf-main .muted { color: var(--slate); }
+.pf-main a { color: var(--brass); font-weight: 500; }
+
+/* ---------- KPI cards ---------- */
+.pf-main .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 8px; }
+.pf-main .kpi-card { background: var(--paper2); border: 1px solid var(--line); padding: 16px; }
+.pf-main .kpi-value { font-size: 2rem; font-weight: 700; line-height: 1.1; color: var(--brass); font-variant-numeric: tabular-nums; }
+.pf-main .kpi-label { margin-top: 6px; font-size: .85rem; color: var(--slate); }
+
+/* ---------- Tables ---------- */
+.pf-main .table-wrap { overflow-x: auto; border: 1px solid var(--line); background: var(--surface); -webkit-overflow-scrolling: touch; }
+.pf-main .data-table { width: 100%; border-collapse: collapse; min-width: 420px; font-size: .9rem; }
+.pf-main .data-table th {
+  text-align: left; padding: 10px 14px; white-space: nowrap;
+  font-size: .75rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--slate); border-bottom: 1px solid var(--line);
+}
+.pf-main .data-table td { padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.pf-main .data-table tbody tr:last-child td { border-bottom: 0; }
+.pf-main .data-table tbody tr:hover { background: rgba(168, 129, 58, .06); }
+.pf-main .data-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.pf-main .cell-detail { max-width: 360px; overflow-wrap: anywhere; font-family: ui-monospace, Consolas, monospace; font-size: .78rem; color: var(--slate); }
+
+/* ---------- Status badge ---------- */
+.pf-main .status-badge { display: inline-block; padding: 2px 8px; font-size: .75rem; font-weight: 600; text-transform: capitalize; border: 1px solid currentColor; }
+.pf-main .status-badge.active { color: var(--forest); }
+.pf-main .status-badge.suspended { color: var(--rust); }
+
+/* ---------- Bar charts ---------- */
+.pf-main .bar-chart { display: grid; gap: 8px; }
+.pf-main .bar-row { display: grid; grid-template-columns: 64px 1fr 40px; align-items: center; gap: 12px; font-size: .85rem; }
+.pf-main .bar-label { color: var(--slate); }
+.pf-main .bar-value { text-align: right; font-variant-numeric: tabular-nums; }
+.pf-main .score-bar { height: 8px; background: var(--paper2); }
+.pf-main .score-bar > div { height: 100%; background: var(--brass); }
+
+/* ---------- Filters, forms, pagination ---------- */
+.pf-main .orgs-filters, .pf-main .audit-filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
+.pf-main .orgs-filters .field:first-child { flex: 1 1 240px; }
+.pf-main .orgs-filters select.field, .pf-main .audit-filters .field { flex: 0 1 180px; }
+.pf-main .audit-filters { margin: 16px 0 0; }
+.pf-main .pagination { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 16px; }
+.pf-main .add-note-form { display: grid; gap: 8px; margin-top: 12px; }
+.pf-main .add-note-form textarea { min-height: 80px; resize: vertical; }
+.pf-main .add-note-form .btn { justify-self: start; }
+
+/* ---------- Org detail ---------- */
+.pf-main .org-header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 12px; }
+.pf-main .org-header h2 { margin: 0; }
+.pf-main .org-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+.pf-main .note-item { padding: 12px 0; border-bottom: 1px solid var(--line); }
+.pf-main .note-date { font-size: .75rem; color: var(--slate); margin-bottom: 4px; }
+.pf-main .note-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* ---------- Modals ---------- */
+.pf-main .modal { position: fixed; inset: 0; z-index: 50; display: none; align-items: center; justify-content: center; padding: 16px; background: rgba(0, 0, 0, .45); }
+.pf-main .modal-content { width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; background: var(--paper); border: 1px solid var(--line); padding: 20px; }
+.pf-main .modal-content h3 { margin-top: 0; }
+.pf-main .modal-content textarea { width: 100%; min-height: 100px; }
+.pf-main .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+
+@media (max-width: 480px) {
+  .pf-main { padding: 16px 12px 48px; }
+  .pf-main h2 { font-size: 1.5rem; }
+  .pf-main .bar-row { grid-template-columns: 52px 1fr 32px; gap: 8px; }
+  .pf-main .modal-actions { flex-direction: column-reverse; }
+  .pf-main .modal-actions .btn { width: 100%; }
+}

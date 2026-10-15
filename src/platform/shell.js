@@ -1,26 +1,38 @@
-// src/platform/shell.js — minimal shell for platform admin
-export function renderPlatformShell(root, { activeHref, title }) {
+// src/platform/shell.js — responsive shell for the platform admin
+import { clearPlatformToken } from './api.js';
+import { logoSvg } from '../shared/logo.js';
+
+const LINKS = [
+  { href: '#/platform', label: 'Overview' },
+  { href: '#/platform/orgs', label: 'Organisations' },
+  { href: '#/platform/ledger', label: 'Ledger' },
+];
+
+export function renderPlatformShell(root, { activeHref, title = 'Stead platform' } = {}) {
   root.innerHTML = `
-    <div id="app">
-      <header class="topbar">
-        <div class="topbar-left">
-          <h1 class="topbar-title">${title}</h1>
+    <div class="pf-shell">
+      <header class="pf-header">
+        <div class="pf-header-inner">
+          <a class="pf-brand" href="#/platform">
+            <span class="pf-logo">${logoSvg({ size: 28 })}</span>
+            <span class="pf-brand-text serif">${title}</span>
+          </a>
+          <nav class="pf-nav" aria-label="Platform">
+            ${LINKS.map(
+              (l) =>
+                `<a href="${l.href}" class="${l.href === activeHref ? 'active' : ''}"${
+                  l.href === activeHref ? ' aria-current="page"' : ''
+                }>${l.label}</a>`
+            ).join('')}
+          </nav>
+          <button type="button" class="pf-signout" id="platform-signout">Sign out</button>
         </div>
-        <nav class="platform-nav">
-          <a href="#/platform" class="${activeHref === '#/platform' ? 'active' : ''}">Overview</a>
-          <a href="#/platform/orgs" class="${activeHref === '#/platform/orgs' ? 'active' : ''}">Organisations</a>
-          <a href="#/platform/ledger" class="${activeHref === '#/platform/ledger' ? 'active' : ''}">Ledger</a>
-          <a href="#" id="platform-signout">Sign out</a>
-        </nav>
       </header>
-      <div class="content" id="page-content"></div>
+      <main class="pf-main" id="page-content"></main>
     </div>
   `;
 
-  const signoutBtn = root.querySelector('#platform-signout');
-  signoutBtn.addEventListener('click', (e) => {
-    e.preventDefault();
-    const { clearPlatformToken } = require('./api.js');
+  root.querySelector('#platform-signout').addEventListener('click', () => {
     clearPlatformToken();
     window.location.hash = '#/platform/login';
   });

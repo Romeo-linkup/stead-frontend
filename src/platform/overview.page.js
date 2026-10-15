@@ -1,13 +1,7 @@
 // src/platform/overview.page.js
 import { platformFetch } from './api.js';
 import { renderPlatformShell } from './shell.js';
-import { logoSvg } from '../shared/logo.js';
-
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
+import { escapeHtml, roleLabel } from './format.js';
 
 export function renderPlatformOverview(root) {
   const content = renderPlatformShell(root, { activeHref: '#/platform', title: 'Stead platform' });
@@ -43,7 +37,7 @@ export function renderPlatformOverview(root) {
           <thead>
             <tr>
               <th>Role</th>
-              <th>Count</th>
+              <th class="num">Count</th>
             </tr>
           </thead>
           <tbody id="users-table"></tbody>
@@ -56,10 +50,10 @@ export function renderPlatformOverview(root) {
           <thead>
             <tr>
               <th>Role</th>
-              <th>Issued</th>
-              <th>Registered</th>
-              <th>Active</th>
-              <th>Revoked</th>
+              <th class="num">Issued</th>
+              <th class="num">Registered</th>
+              <th class="num">Active</th>
+              <th class="num">Revoked</th>
             </tr>
           </thead>
           <tbody id="codes-table"></tbody>
@@ -93,26 +87,26 @@ export function renderPlatformOverview(root) {
       const usersTable = content.querySelector('#users-table');
       usersTable.innerHTML = data.users_by_role.map(row => `
         <tr>
-          <td>${escapeHtml(row.role)}</td>
-          <td>${row.count}</td>
+          <td>${roleLabel(row.role)}</td>
+          <td class="num">${row.count}</td>
         </tr>
       `).join('');
 
       const codesTable = content.querySelector('#codes-table');
       codesTable.innerHTML = data.codes_by_role.map(row => `
         <tr>
-          <td>${escapeHtml(row.role)}</td>
-          <td>${row.issued}</td>
-          <td>${row.registered}</td>
-          <td>${row.active}</td>
-          <td>${row.revoked}</td>
+          <td>${roleLabel(row.role)}</td>
+          <td class="num">${row.issued}</td>
+          <td class="num">${row.registered}</td>
+          <td class="num">${row.active}</td>
+          <td class="num">${row.revoked}</td>
         </tr>
       `).join('');
 
       const signupsChart = content.querySelector('#signups-chart');
       if (data.signups_per_week.length > 0) {
         const maxCount = Math.max(...data.signups_per_week.map(r => parseInt(r.count)));
-        signupsChart.innerHTML = data.signups_per_week.map(row => {
+        signupsChart.innerHTML = `<div class="bar-chart">${data.signups_per_week.map(row => {
           const week = new Date(row.week).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
           const width = maxCount > 0 ? (parseInt(row.count) / maxCount * 100) : 0;
           return `
@@ -122,7 +116,7 @@ export function renderPlatformOverview(root) {
               <div class="bar-value">${row.count}</div>
             </div>
           `;
-        }).join('');
+        }).join('')}</div>`;
       } else {
         signupsChart.innerHTML = '<p class="muted">No data</p>';
       }
@@ -130,7 +124,7 @@ export function renderPlatformOverview(root) {
       const auditChart = content.querySelector('#audit-chart');
       if (data.audit_events_per_day.length > 0) {
         const maxCount = Math.max(...data.audit_events_per_day.map(r => parseInt(r.count)));
-        auditChart.innerHTML = data.audit_events_per_day.map(row => {
+        auditChart.innerHTML = `<div class="bar-chart">${data.audit_events_per_day.map(row => {
           const day = new Date(row.day).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
           const width = maxCount > 0 ? (parseInt(row.count) / maxCount * 100) : 0;
           return `
@@ -140,7 +134,7 @@ export function renderPlatformOverview(root) {
               <div class="bar-value">${row.count}</div>
             </div>
           `;
-        }).join('');
+        }).join('')}</div>`;
       } else {
         auditChart.innerHTML = '<p class="muted">No data</p>';
       }

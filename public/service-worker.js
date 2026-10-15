@@ -1,5 +1,5 @@
 // Bump this constant by hand on each deploy (e.g., stead-v1, stead-v2, ...)
-const VERSION = 'stead-v15';
+const VERSION = 'stead-v16';
 const SHELL_CACHE = `${VERSION}-shell`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 
@@ -16,6 +16,8 @@ const PRECACHE_ASSETS = [
 	'/src/shared/assets.js',
 	'/src/styles/tokens.css',
 	'/src/shared/components.css',
+	'/src/styles/platform.css',
+	'/src/platform/format.js',
 ];
 
 self.addEventListener('install', event => {

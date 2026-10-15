@@ -1,12 +1,7 @@
 // src/platform/org-detail.page.js
 import { platformFetch } from './api.js';
 import { renderPlatformShell } from './shell.js';
-
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
+import { escapeHtml } from './format.js';
 
 export function renderPlatformOrgDetail(root) {
   const params = new URLSearchParams(window.location.hash.split('?')[1]);
@@ -59,10 +54,10 @@ export function renderPlatformOrgDetail(root) {
           <thead>
             <tr>
               <th>District</th>
-              <th>Properties</th>
-              <th>Units</th>
-              <th>Users</th>
-              <th>Active codes</th>
+              <th class="num">Properties</th>
+              <th class="num">Units</th>
+              <th class="num">Users</th>
+              <th class="num">Active codes</th>
             </tr>
           </thead>
           <tbody id="districts-table"></tbody>
@@ -157,7 +152,6 @@ export function renderPlatformOrgDetail(root) {
   const disputeModal = content.querySelector('#dispute-modal');
 
   let currentOrg = null;
-  let disputeGrant = null;
 
   async function loadOrgDetail() {
     try {
@@ -185,21 +179,25 @@ export function renderPlatformOrgDetail(root) {
       unsuspendBtn.style.display = data.org.status === 'suspended' ? 'inline-block' : 'none';
 
       const districtsTable = content.querySelector('#districts-table');
-      districtsTable.innerHTML = data.district_breakdown.map(d => {
-        const totalUsers = (parseInt(d.admins) || 0) +
-                          (parseInt(d.property_managers) || 0) +
-                          (parseInt(d.service_providers) || 0) +
-                          (parseInt(d.tenants) || 0);
-        return `
-          <tr>
-            <td>${escapeHtml(d.name)}</td>
-            <td>${d.properties}</td>
-            <td>${d.units}</td>
-            <td>${totalUsers}</td>
-            <td>${d.active_codes}</td>
-          </tr>
-        `;
-      }).join('');
+      if (data.district_breakdown.length === 0) {
+        districtsTable.innerHTML = '<tr><td colspan="5" class="muted">No districts</td></tr>';
+      } else {
+        districtsTable.innerHTML = data.district_breakdown.map(d => {
+          const totalUsers = (parseInt(d.admins) || 0) +
+                            (parseInt(d.property_managers) || 0) +
+                            (parseInt(d.service_providers) || 0) +
+                            (parseInt(d.tenants) || 0);
+          return `
+            <tr>
+              <td>${escapeHtml(d.name)}</td>
+              <td class="num">${d.properties}</td>
+              <td class="num">${d.units}</td>
+              <td class="num">${totalUsers}</td>
+              <td class="num">${d.active_codes}</td>
+            </tr>
+          `;
+        }).join('');
+      }
 
       const notesList = content.querySelector('#notes-list');
       if (data.notes.length > 0) {
@@ -214,14 +212,18 @@ export function renderPlatformOrgDetail(root) {
       }
 
       const ledgerTable = content.querySelector('#ledger-table');
-      ledgerTable.innerHTML = data.ledger.map(entry => `
-        <tr>
-          <td>${new Date(entry.occurred_at).toLocaleString()}</td>
-          <td>${escapeHtml(entry.event_type)}</td>
-          <td>${entry.actor_type} ${entry.actor_id || ''}</td>
-          <td>${escapeHtml(JSON.stringify(entry.detail))}</td>
-        </tr>
-      `).join('');
+      if (data.ledger.length === 0) {
+        ledgerTable.innerHTML = '<tr><td colspan="4" class="muted">No ledger entries</td></tr>';
+      } else {
+        ledgerTable.innerHTML = data.ledger.map(entry => `
+          <tr>
+            <td>${new Date(entry.occurred_at).toLocaleString()}</td>
+            <td>${escapeHtml(entry.event_type)}</td>
+            <td>${escapeHtml(entry.actor_type)} ${escapeHtml(String(entry.actor_id || ''))}</td>
+            <td class="cell-detail">${escapeHtml(JSON.stringify(entry.detail))}</td>
+          </tr>
+        `).join('');
+      }
     } catch (err) {
       loading.style.display = 'none';
       errorBox.textContent = err.message;
@@ -326,7 +328,6 @@ export function renderPlatformOrgDetail(root) {
         body: { reason },
       });
       disputeModal.style.display = 'none';
-      disputeGrant = data;
       content.querySelector('#dispute-section').style.display = 'block';
       content.querySelector('#dispute-notice').textContent = `Access recorded. Expires ${new Date(data.expires_at).toLocaleString()}.`;
     } catch (err) {
@@ -351,15 +352,19 @@ export function renderPlatformOrgDetail(root) {
     try {
       const data = await platformFetch(`/platform/orgs/${orgId}/audit?${params}`);
       const auditTable = content.querySelector('#audit-table');
-      auditTable.innerHTML = data.audit.map(row => `
-        <tr>
-          <td>${new Date(row.created_at).toLocaleString()}</td>
-          <td>${escapeHtml(row.actor_role || '-')}</td>
-          <td>${escapeHtml(row.action)}</td>
-          <td>${escapeHtml(row.entity_type || '-')} ${row.entity_id || ''}</td>
-          <td>${escapeHtml(row.ip || '-')}</td>
-        </tr>
-      `).join('');
+      if (data.audit.length === 0) {
+        auditTable.innerHTML = '<tr><td colspan="5" class="muted">No audit entries</td></tr>';
+      } else {
+        auditTable.innerHTML = data.audit.map(row => `
+          <tr>
+            <td>${new Date(row.created_at).toLocaleString()}</td>
+            <td>${escapeHtml(row.actor_role || '-')}</td>
+            <td>${escapeHtml(row.action)}</td>
+            <td>${escapeHtml(row.entity_type || '-')} ${escapeHtml(String(row.entity_id || ''))}</td>
+            <td>${escapeHtml(row.ip || '-')}</td>
+          </tr>
+        `).join('');
+      }
     } catch (err) {
       errorBox.textContent = err.message;
       errorBox.style.display = 'block';
