@@ -84,16 +84,11 @@ async function router() {
       window.location.hash = '#/platform/login';
       return;
     }
-    renderPlatformOrgs(root);
-    return;
-  }
-
-  if (bareHash === '#/platform/orgs' && hash.includes('?view=')) {
-    if (!platformToken) {
-      window.location.hash = '#/platform/login';
-      return;
+    if (hash.includes('?view=')) {
+      renderPlatformOrgDetail(root);
+    } else {
+      renderPlatformOrgs(root);
     }
-    renderPlatformOrgDetail(root);
     return;
   }
 
