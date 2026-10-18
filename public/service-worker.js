@@ -1,5 +1,5 @@
 // Bump this constant by hand on each deploy (e.g., stead-v1, stead-v2, ...)
-const VERSION = 'stead-v18';
+const VERSION = 'stead-v19';
 const SHELL_CACHE = `${VERSION}-shell`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 

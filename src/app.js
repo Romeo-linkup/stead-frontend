@@ -32,6 +32,7 @@ import { renderTenants } from './admin/tenants.page.js';
 import { renderMaintenance as renderAdminMaintenance } from './admin/maintenance.page.js';
 import { renderPayments as renderAdminPayments } from './admin/payments.page.js';
 import { renderInvoices as renderAdminInvoices } from './admin/invoices.page.js';
+import { renderCashflow } from './admin/cashflow.page.js';
 import { renderSettings as renderAdminSettings } from './admin/settings.page.js';
 import { renderProfile as renderAdminProfile } from './admin/profile.page.js';
 import { getCurrentUser } from './auth/session.js';
@@ -177,6 +178,11 @@ async function router() {
     case hash === '#/admin/invoices':
       if (!ADMIN_ROLES.includes(user.role)) return unauthorized();
       renderAdminInvoices(root);
+      break;
+
+    case hash === '#/admin/cashflow':
+      if (user.role !== 'owner') return unauthorized();
+      renderCashflow(root);
       break;
 
     case hash === '#/admin/settings':

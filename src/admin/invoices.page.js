@@ -1,6 +1,7 @@
 import { renderShell } from '../shared/shell.js';
 import { apiFetch } from '../shared/api.js';
 import { toast } from '../shared/toast.js';
+import { personLine } from '../shared/avatar.js';
 
 const STATUSES = {
 	submitted: { badge: 'new', label: 'Submitted' },
@@ -86,7 +87,8 @@ export function renderInvoices(root) {
 			return `
 				<div class="card invoice-admin-card">
 					<div class="row"><b class="small">${escapeHtml(taskTitle || 'Maintenance task')}</b><span class="badge ${status.badge}">${status.label}</span></div>
-					<p class="small muted" style="margin:6px 0;">${escapeHtml(invoice.property_name || 'Property')} · Unit ${escapeHtml(invoice.unit_number || 'Unknown')} · To: ${escapeHtml(invoice.to_party)} · From: ${escapeHtml(invoice.provider_name)}</p>
+					<p class="small muted" style="margin:6px 0;">${escapeHtml(invoice.property_name || 'Property')} · Unit ${escapeHtml(invoice.unit_number || 'Unknown')} · To: ${escapeHtml(invoice.to_party)}</p>
+					<div style="margin:6px 0;">${personLine(invoice.provider_avatar_url, invoice.provider_name, 'From', 32)}</div>
 					<div class="table-wrap"><table class="simple">
 						<thead><tr><th>Description</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead>
 						<tbody>${items.map((item) => `
