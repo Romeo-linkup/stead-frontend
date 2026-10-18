@@ -4,6 +4,7 @@ import { apiFetch } from '../shared/api.js';
 import { getCurrentUser } from '../auth/session.js';
 import { toast } from '../shared/toast.js';
 import { formatDueDate } from '../shared/format.js';
+import { personLine } from '../shared/avatar.js';
 import {
   getHashQuery,
   renderTabBar,
@@ -182,6 +183,7 @@ function renderRequests() {
 			const status = r.status || 'outstanding';
 			const meta = renderMeta(r, status);
 			const photos = renderPhotos(r);
+			const provider = r.assigned_to_name ? `<div style="margin:6px 0;">${personLine(r.assigned_to_avatar_url, r.assigned_to_name, 'Service provider')}</div>` : '';
 
 			return `
 				<div class="card">
@@ -191,6 +193,7 @@ function renderRequests() {
 					</div>
 					<p class="small muted" style="margin:6px 0 2px;">${escapeHtml(truncate(r.description, 120))}</p>
 					<p class="small muted" style="margin:0 0 6px;">${escapeHtml(meta)}</p>
+					${provider}
 					${photos}
 				</div>
 			`;
@@ -200,24 +203,13 @@ function renderRequests() {
 
 function renderMeta(request, status) {
 	const reportedDate = formatDueDate(request.created_at, 'short');
-
 	if (status === 'outstanding') {
-		if (request.assigned_to_name) {
-			return `Reported ${reportedDate} · assigned to ${escapeHtml(request.assigned_to_name)}`;
-		}
-		return `Reported ${reportedDate} · not yet assigned`;
+		return request.assigned_to_name
+			? `Reported ${reportedDate} · assigned`
+			: `Reported ${reportedDate} · not yet assigned`;
 	}
-
-	if (status === 'pending') {
-		return `Reported ${reportedDate} · assigned to ${escapeHtml(request.assigned_to_name || 'a service provider')}`;
-	}
-
-	// finished
-	let meta = `Reported ${reportedDate} · closed ${formatDueDate(request.updated_at, 'short')}`;
-	if (request.assigned_to_name) {
-		meta += ` by ${escapeHtml(request.assigned_to_name)}`;
-	}
-	return meta;
+	if (status === 'pending') return `Reported ${reportedDate} · in progress`;
+	return `Reported ${reportedDate} · closed ${formatDueDate(request.updated_at, 'short')}`;
 }
 
 function renderPhotos(request) {

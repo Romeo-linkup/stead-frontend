@@ -3,8 +3,11 @@
 import { API_URL } from '../config.js';
 import { setToken, getPreToken, clearPreToken } from './session.js';
 import { routeToDashboard } from './login.page.js';
+import { renderPhotoPicker } from '../shared/photo-picker.js';
 
 export function renderRegisterName(root, { role, district_name } = {}) {
+  const needsPhoto = role === 'tenant' || role === 'service_provider';
+
   root.innerHTML = `
     <div class="auth-shell">
       <div class="auth-card">
@@ -14,6 +17,7 @@ export function renderRegisterName(root, { role, district_name } = {}) {
           First, tell us who you are.
         </p>
         <form id="register-form">
+          ${needsPhoto ? '<div id="photo-slot"></div>' : ''}
           <div class="field">
             <label class="field-label" for="name">Full name</label>
             <input class="field" id="name" name="name" required />
@@ -37,10 +41,21 @@ export function renderRegisterName(root, { role, district_name } = {}) {
   const form = root.querySelector('#register-form');
   const errorBox = root.querySelector('#register-error');
   const submitBtn = root.querySelector('#register-submit');
+  let picker = null;
+
+  if (needsPhoto) {
+    picker = renderPhotoPicker(root.querySelector('#photo-slot'), { name: '' });
+  }
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     errorBox.style.display = 'none';
+
+    if (needsPhoto && !picker.getFile()) {
+      errorBox.textContent = 'Please add your photo to continue.';
+      errorBox.style.display = 'block';
+      return;
+    }
 
     const preToken = getPreToken();
     if (!preToken) {
@@ -53,13 +68,29 @@ export function renderRegisterName(root, { role, district_name } = {}) {
     submitBtn.textContent = 'Saving...';
 
     try {
-      const res = await fetch(`${API_URL}/auth/register-name`, {
-        method: 'POST',
-        headers: {
+      let body;
+      let headers;
+
+      if (needsPhoto) {
+        const formData = new FormData();
+        formData.append('name', form.name.value.trim());
+        formData.append('phone', form.phone.value.trim() || '');
+        formData.append('email', form.email.value.trim() || '');
+        formData.append('photo', picker.getFile());
+        body = formData;
+        headers = { Authorization: `Bearer ${preToken}` };
+      } else {
+        body = JSON.stringify({ name: form.name.value.trim(), phone: form.phone.value.trim() || null, email: form.email.value.trim() || null });
+        headers = {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${preToken}`,
-        },
-        body: JSON.stringify({ name: form.name.value.trim(), phone: form.phone.value.trim() || null, email: form.email.value.trim() || null }),
+        };
+      }
+
+      const res = await fetch(`${API_URL}/auth/register-name`, {
+        method: 'POST',
+        headers,
+        body,
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Registration failed.');

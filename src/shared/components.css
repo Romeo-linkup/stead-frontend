@@ -394,6 +394,27 @@ table.list td { padding: 10px; border-bottom: 1px solid var(--line); }
   margin-top: 16px;
 }
 
+.topbar-titles { display: flex; flex-direction: column; min-width: 0; }
+.topbar-biz {
+	font-size: .7rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+	color: var(--slate); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.topbar-biz:empty { display: none; }
+.menu-brand { display: flex; align-items: center; gap: 10px; padding: 16px; border-bottom: 1px solid var(--line); }
+.menu-brand .txt > div:first-child { font-family: 'Newsreader', serif; font-weight: 600; font-size: 1.1rem; }
+.menu-brand .txt > div:last-child { font-size: .75rem; color: var(--slate); }
+@media (min-width: 900px) { .topbar-biz { display: none; } }
+
+.user-av {
+  border-radius: 50%; object-fit: cover; flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--surface); border: 1px solid var(--line);
+}
+.user-av-initial { font-weight: 600; color: var(--brass-dark); }
+.photo-picker { display: flex; align-items: center; gap: 16px; }
+.photo-preview { flex: none; line-height: 0; }
+.photo-picker-side { min-width: 0; }
+
 /* Platform ledger styles */
 .ledger-actions {
   display: flex;

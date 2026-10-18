@@ -4,6 +4,7 @@ import { apiFetch } from '../shared/api.js';
 import { getCurrentUser } from '../auth/session.js';
 import { toast } from '../shared/toast.js';
 import { capitalise } from '../shared/format.js';
+import { personLine } from '../shared/avatar.js';
 import {
   getHashQuery,
   renderTabBar,
@@ -521,6 +522,11 @@ function renderMaintenanceCards(tasks) {
 				showDistrict && task.district_name ? ` · ${task.district_name}` : ''
 			}`;
 
+			const people = [
+				task.reported_by_name ? personLine(task.reported_by_avatar_url, task.reported_by_name, 'Reported by') : '',
+				task.assigned_to_name ? personLine(task.assigned_to_avatar_url, task.assigned_to_name, 'Assigned to') : '',
+			].filter(Boolean).map((html) => `<div style="margin:6px 0;">${html}</div>`).join('');
+
 			return `
 				<div class="card">
 					<div class="row">
@@ -529,6 +535,7 @@ function renderMaintenanceCards(tasks) {
 					</div>
 					<p class="small muted" style="margin:6px 0 2px;">${escapeHtml(truncate(task.description, 120))}</p>
 					<p class="small muted" style="margin:0 0 6px;">${escapeHtml(where)}</p>
+					${people}
 					${statusBlock}
 					${invoiceBlock}
 					${panel}
@@ -544,7 +551,7 @@ function renderStatusBlock(task, status) {
 	if (status === 'outstanding') {
 		if (task.assigned_to) {
 			return `
-				<p class="small muted" style="margin:0 0 8px;">Assigned to ${escapeHtml(task.assigned_to_name || 'a service provider')} · waiting for them to accept</p>
+				<p class="small muted" style="margin:0 0 8px;">Waiting for the service provider to accept</p>
 				<button class="btn secondary sm" data-assign-open="${escapeAttr(task.id)}">Reassign</button>
 			`;
 		}
@@ -552,7 +559,7 @@ function renderStatusBlock(task, status) {
 	}
 
 	if (status === 'pending') {
-		return `<p class="small muted" style="margin:0;">Assigned to ${escapeHtml(task.assigned_to_name || 'a service provider')} · in progress</p>`;
+		return `<p class="small muted" style="margin:0;">In progress</p>`;
 	}
 
 	// finished

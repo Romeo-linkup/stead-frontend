@@ -35,6 +35,7 @@ import { renderInvoices as renderAdminInvoices } from './admin/invoices.page.js'
 import { renderSettings as renderAdminSettings } from './admin/settings.page.js';
 import { renderProfile as renderAdminProfile } from './admin/profile.page.js';
 import { getCurrentUser } from './auth/session.js';
+import { userNeedsAvatar, renderAvatarRequired } from './shared/avatar-gate.js';
 import { renderPlatformLogin } from './platform/login.page.js';
 import { renderPlatformOverview } from './platform/overview.page.js';
 import { renderPlatformOrgs } from './platform/orgs.page.js';
@@ -116,6 +117,11 @@ async function router() {
     } else {
       renderLogin(root);
     }
+    return;
+  }
+
+  if (await userNeedsAvatar(user)) {
+    renderAvatarRequired(root, { user, onDone: router });
     return;
   }
 

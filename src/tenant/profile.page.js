@@ -1,6 +1,9 @@
 import { renderShell } from '../shared/shell.js';
 import { apiFetch } from '../shared/api.js';
 import { toast } from '../shared/toast.js';
+import { renderPhotoPicker } from '../shared/photo-picker.js';
+import { markAvatarPresent } from '../shared/avatar-gate.js';
+import { getCurrentUser } from '../auth/session.js';
 
 export function renderProfile(root) {
 	const content = renderShell(root, { activeHref: '#/tenant/profile', title: 'My profile' });
@@ -10,6 +13,11 @@ export function renderProfile(root) {
 			<h2>My profile</h2>
 		</div>
 		<div class="card">
+			<div class="field">
+				<label class="field-label">Profile photo</label>
+				<div id="photo-slot"></div>
+				<button class="btn secondary sm" id="save-photo" type="button" hidden>Save photo</button>
+			</div>
 			<div class="field">
 				<label class="field-label">Full name</label>
 				<input class="field" id="profile-name" placeholder="Your name">
@@ -43,9 +51,11 @@ export function renderProfile(root) {
 	loadProfile();
 	setupSaveHandler();
 	setupVerificationHandler();
+	setupPhotoHandler();
 }
 
 let loadedEmail = '';
+let photoPicker = null;
 
 function renderEmailBadge(user) {
 	const row = document.getElementById('email-verified');
@@ -89,6 +99,14 @@ async function loadProfile() {
 		document.getElementById('profile-email-notifications').checked = user.email_notifications !== false;
 		loadedEmail = user.email || '';
 		renderEmailBadge(user);
+
+		const photoSlot = document.getElementById('photo-slot');
+		if (photoSlot) {
+			photoPicker = renderPhotoPicker(photoSlot, { initialUrl: user.avatar_url, name: user.name, onChange: () => {
+				const savePhotoBtn = document.getElementById('save-photo');
+				if (savePhotoBtn) savePhotoBtn.hidden = false;
+			}});
+		}
 	} catch (err) {
 		console.error('Failed to load profile:', err);
 	}
@@ -134,6 +152,39 @@ function setupSaveHandler() {
 			errorDiv.hidden = false;
 			saveButton.textContent = 'Save changes';
 			saveButton.disabled = false;
+		}
+	});
+}
+
+function setupPhotoHandler() {
+	const savePhotoBtn = document.getElementById('save-photo');
+	if (!savePhotoBtn) return;
+
+	savePhotoBtn.addEventListener('click', async () => {
+		if (!photoPicker) return;
+
+		const file = photoPicker.getFile();
+		if (!file) {
+			photoPicker.showError('Please choose a photo first.');
+			return;
+		}
+
+		savePhotoBtn.disabled = true;
+		savePhotoBtn.textContent = 'Saving...';
+
+		try {
+			const data = new FormData();
+			data.append('photo', file);
+			const res = await apiFetch('/users/me/avatar', { method: 'POST', body: data, isFormData: true });
+			photoPicker.markSaved(res.avatar_url);
+			markAvatarPresent(getCurrentUser().user_id);
+			savePhotoBtn.hidden = true;
+			toast('Photo saved.');
+		} catch (err) {
+			photoPicker.showError(err.message || 'Could not upload photo.');
+		} finally {
+			savePhotoBtn.disabled = false;
+			savePhotoBtn.textContent = 'Save photo';
 		}
 	});
 }

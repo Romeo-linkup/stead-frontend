@@ -2,6 +2,7 @@ import { renderShell } from '../shared/shell.js';
 import { apiFetch } from '../shared/api.js';
 import { icon } from '../shared/icons.js';
 import { toast } from '../shared/toast.js';
+import { avatarHtml } from '../shared/avatar.js';
 
 export function renderTenants(root) {
 	const content = renderShell(root, { activeHref: '#/admin/tenants', title: 'Tenants & leases' });
@@ -76,7 +77,9 @@ function renderTenantsTable(units, leases, tenants) {
 			const lease = leaseGroup.current;
 			const openLease = leaseGroup.open;
 			const tenant = unit.tenant_user_id ? tenantsById[unit.tenant_user_id] : null;
-			const tenantName = tenant ? escapeHtml(tenant.name) : unit.tenant_user_id ? 'Assigned' : 'Vacant';
+			const tenantCell = tenant
+				? `<div class="person-line">${avatarHtml(tenant.avatar_url, tenant.name, 32)}<span>${escapeHtml(tenant.name)}</span></div>`
+				: escapeHtml(unit.tenant_user_id ? 'Assigned' : 'Vacant');
 			const rentAmount = unit.rent_amount == null ? '-' : `R${escapeHtml(Number(unit.rent_amount).toLocaleString())}`;
 
 			let leaseStatus = '';
@@ -124,7 +127,7 @@ function renderTenantsTable(units, leases, tenants) {
 			return `
 				<tr>
 					<td>${escapeHtml(unit.unit_number || '')}</td>
-					<td>${tenantName}</td>
+					<td>${tenantCell}</td>
 					<td>${leaseStatus}</td>
 					<td>${rentAmount}</td>
 					<td>${action}</td>

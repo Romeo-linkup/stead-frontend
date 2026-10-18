@@ -96,11 +96,12 @@ export function canInstall() {
 
 export async function promptInstall() {
 	if (!deferredPrompt) return;
-	deferredPrompt.prompt();
-	const { outcome } = await deferredPrompt.userChoice;
-	if (outcome === 'accepted') {
-		deferredPrompt = null;
-	}
+	const promptEvent = deferredPrompt;
+	deferredPrompt = null;
+	try {
+		await promptEvent.prompt();
+		await promptEvent.userChoice;
+	} catch (e) {}
 	window.dispatchEvent(new CustomEvent('stead-install-changed'));
 }
 

@@ -2,6 +2,7 @@
 import { renderShell } from '../shared/shell.js';
 import { apiFetch } from '../shared/api.js';
 import { toast } from '../shared/toast.js';
+import { avatarHtml, personLine } from '../shared/avatar.js';
 
 export async function renderComplaints(root) {
 	const content = renderShell(root, { activeHref: '#/admin/complaints', title: 'Complaints' });
@@ -62,7 +63,7 @@ async function renderComplaintList(content, params) {
 						<b class="small">${escapeHtml(complaint.category)}</b>
 						<span class="badge ${badgeClass}">${escapeHtml(complaint.status)}</span>
 					</div>
-					<p class="small muted" style="margin:6px 0;">${submitted} · ${escapeHtml(date)}</p>
+					<div class="person-line" style="margin:6px 0;">${complaint.is_anonymous ? '' : avatarHtml(complaint.submitted_by_avatar_url, complaint.submitted_by_name, 28)}<span class="small muted">${submitted} · ${escapeHtml(date)}</span></div>
 					<p class="small muted clamp-2">${escapeHtml(complaint.description)}</p>
 					<span class="small" style="color:var(--brass-dark);font-weight:600;">Read full complaint</span>
 				</a>
@@ -83,6 +84,7 @@ async function renderComplaintDetail(content, id) {
 				<p class="small muted">Tracking code <code>${escapeHtml(complaint.tracking_code)}</code></p>
 			</div>
 			<div class="card">
+				${complaint.is_anonymous ? '' : `<div style="margin-bottom:10px;">${personLine(complaint.submitted_by_avatar_url, complaint.submitted_by_name || '', 'Submitted by', 44)}</div>`}
 				<div class="row"><b class="small">Status</b><span class="badge ${complaint.status === 'resolved' ? 'finished' : 'outstanding'}">${escapeHtml(complaint.status)}</span></div>
 				<div class="row"><b class="small">Submitted by</b><span class="small">${complaint.is_anonymous ? 'Anonymous' : escapeHtml(complaint.submitted_by_name || '')}</span></div>
 				${!complaint.is_anonymous && complaint.unit_number ? `<div class="row"><b class="small">Unit</b><span class="small">${escapeHtml(complaint.unit_number)}</span></div>` : ''}

@@ -1,5 +1,5 @@
 import { renderSosButton } from './sos-button.js';
-import { getNavLabel } from './hamburger-menu.js';
+import { getNavLabel, getBusinessName } from './hamburger-menu.js';
 import { icon } from './icons.js';
 
 // The brand block moved into the sidebar; admin/profile.page.js still imports
@@ -11,7 +11,10 @@ export function renderTopbar(container, { title, activeHref, role, isTenant = fa
 	container.innerHTML = `
 		<div class="topbar-left">
 			<button class="iconbtn hamburger-toggle" type="button" aria-label="Open menu">${icon('menu')}</button>
-			<div class="pagetitle">${escapeHtml(getNavLabel(role, activeHref) || title)}</div>
+			<div class="topbar-titles">
+				<div class="topbar-biz"></div>
+				<div class="pagetitle">${escapeHtml(getNavLabel(role, activeHref) || title)}</div>
+			</div>
 		</div>
 		<div class="topbar-right">
 			<button class="iconbtn notification-bell" type="button" aria-label="Notifications">${icon('bell')}</button>
@@ -21,6 +24,11 @@ export function renderTopbar(container, { title, activeHref, role, isTenant = fa
 
 	container.querySelector('.hamburger-toggle').addEventListener('click', () => {
 		if (typeof onMenuOpen === 'function') onMenuOpen();
+	});
+
+	getBusinessName().then((name) => {
+		const el = container.querySelector('.topbar-biz');
+		if (el) el.textContent = name;
 	});
 
 	if (isTenant) {

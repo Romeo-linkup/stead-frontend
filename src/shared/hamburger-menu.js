@@ -10,8 +10,29 @@ import { canActOrgWide, seeMultipleDistricts, userDistrictIds } from './scope.js
 // call doesn't refetch the business name on every hash change.
 let cachedBusinessName = null;
 let fetchPromise = null;
+let installRefresh = null;
+let themeRefresh = null;
+let avatarCache = { userId: null, url: undefined, promise: null };
 
-function getBusinessName() {
+// Cached per signed-in user, so a second person signing in on the same device never sees the first person's photo.
+export function getMyAvatarUrl() {
+	const userId = getCurrentUser()?.user_id;
+	if (avatarCache.userId !== userId) avatarCache = { userId, url: undefined, promise: null };
+	if (avatarCache.url !== undefined) return Promise.resolve(avatarCache.url);
+	if (!avatarCache.promise) {
+		const cache = avatarCache;
+		cache.promise = apiFetch('/users/me')
+			.then((me) => { cache.url = me.avatar_url || null; return cache.url; })
+			.catch(() => { cache.promise = null; return null; });
+	}
+	return avatarCache.promise;
+}
+
+export function invalidateMyAvatarCache() {
+	avatarCache = { userId: null, url: undefined, promise: null };
+}
+
+export function getBusinessName() {
 	if (cachedBusinessName) return Promise.resolve(cachedBusinessName);
 	if (!fetchPromise) {
 		fetchPromise = apiFetch('/settings')
@@ -126,22 +147,35 @@ function themeButtonGroup() {
 	</div>`;
 }
 
+function isAndroid() {
+	return /android/i.test(navigator.userAgent);
+}
+
 function installBlock() {
 	if (isStandalone()) return '';
-	const showInstall = canInstall() || isIos();
-	if (!showInstall) return '';
 
 	if (canInstall()) {
 		return `<div class="install-block">
 			<div class="appearance-label">Install app</div>
-			<button type="button" class="btn brass sm" id="install-btn">Install</button>
+			<button type="button" class="btn brass sm" data-install-btn>Install</button>
 		</div>`;
 	}
 
-	return `<div class="install-block">
-		<div class="appearance-label">Install app</div>
-		<p class="small muted">On iPhone: tap the Share button, then Add to Home Screen.</p>
-	</div>`;
+	if (isIos()) {
+		return `<div class="install-block">
+			<div class="appearance-label">Install app</div>
+			<p class="small muted">On iPhone: tap the Share button, then Add to Home Screen.</p>
+		</div>`;
+	}
+
+	if (isAndroid()) {
+		return `<div class="install-block">
+			<div class="appearance-label">Install app</div>
+			<p class="small muted">Open your browser menu and choose Install app or Add to Home screen.</p>
+		</div>`;
+	}
+
+	return '';
 }
 
 function syncThemeButtons(container) {
@@ -168,7 +202,7 @@ export function renderHamburgerMenu(container, { activeHref }) {
 		<aside class="sidebar" aria-label="Main navigation">
 			<div class="brand">
 				<div class="mark">${logoSvg({ size: 28, variant: 'dark' })}</div>
-				<div class="txt"><div id="brand-business-name">Stead</div><div>Property management</div></div>
+				<div class="txt"><div class="brand-business-name">Stead</div><div>Property management</div></div>
 			</div>
 			<div class="sidebar-who">
 				<div class="avatar">${escapeHtml(name.charAt(0).toUpperCase())}</div>
@@ -178,12 +212,16 @@ export function renderHamburgerMenu(container, { activeHref }) {
 				</div>
 			</div>
 			<nav>${nav.map(item => navLink(item, activeHref)).join('')}</nav>
-			${installBlock()}
+			<div class="install-slot">${installBlock()}</div>
 			${themeButtonGroup()}
 			<button class="logout sidebar-logout" type="button">${icon('logout')} Log out</button>
 		</aside>
 		<div class="menu-overlay" aria-hidden="true">
 			<div class="menu-panel" role="dialog" aria-label="Navigation menu">
+				<div class="menu-brand">
+					<div class="mark">${logoSvg({ size: 28 })}</div>
+					<div class="txt"><div class="brand-business-name">Stead</div><div>Property management</div></div>
+				</div>
 				<div class="menu-who">
 					<div class="avatar">${escapeHtml(name.charAt(0).toUpperCase())}</div>
 					<div>
@@ -193,7 +231,7 @@ export function renderHamburgerMenu(container, { activeHref }) {
 				</div>
 				<nav class="menu-list">
 					${nav.map(item => navLink(item, activeHref)).join('')}
-					${installBlock()}
+					<div class="install-slot">${installBlock()}</div>
 					${themeButtonGroup()}
 					<button class="logout menu-logout" type="button">${icon('logout')} Log out</button>
 				</nav>
@@ -215,11 +253,22 @@ export function renderHamburgerMenu(container, { activeHref }) {
 		syncThemeButtons(container);
 	};
 
-	// Fill in the real business name once fetched — "Stead" shows briefly
-	// as a fallback on first load, then gets replaced.
+	// "Stead" is only a fallback until the real business name arrives.
 	getBusinessName().then((businessName) => {
-		const el = container.querySelector('#brand-business-name');
-		if (el) el.textContent = businessName;
+		container.querySelectorAll('.brand-business-name').forEach((el) => {
+			el.textContent = businessName;
+		});
+	});
+
+	getMyAvatarUrl().then((url) => {
+		if (!url || !String(url).startsWith('https://')) return;
+		container.querySelectorAll('.avatar').forEach((el) => {
+			const img = document.createElement('img');
+			img.src = url;
+			img.alt = '';
+			img.className = 'avatar-img';
+			el.replaceChildren(img);
+		});
 	});
 
 	overlay.addEventListener('click', event => {
@@ -238,40 +287,27 @@ export function renderHamburgerMenu(container, { activeHref }) {
 		});
 	});
 
-	const installBtn = container.querySelector('#install-btn');
-	if (installBtn) {
-		installBtn.addEventListener('click', () => {
-			promptInstall();
-		});
-	}
+	// One delegated handler covers every install button (sidebar copy and mobile menu copy).
+	container.addEventListener('click', (event) => {
+		if (event.target.closest('[data-install-btn]')) promptInstall();
+	});
 
-	window.addEventListener('stead-theme-change', updateThemeControls, { once: false });
-	window.addEventListener('stead-install-available', () => {
-		const newBlock = installBlock();
-		const sidebarInstall = container.querySelector('.sidebar .install-block');
-		const menuInstall = container.querySelector('.menu-panel .install-block');
-		if (sidebarInstall) sidebarInstall.outerHTML = newBlock;
-		if (menuInstall) menuInstall.outerHTML = newBlock;
-		const newInstallBtn = container.querySelector('#install-btn');
-		if (newInstallBtn) {
-			newInstallBtn.addEventListener('click', () => {
-				promptInstall();
-			});
-		}
-	});
-	window.addEventListener('stead-install-changed', () => {
-		const newBlock = installBlock();
-		const sidebarInstall = container.querySelector('.sidebar .install-block');
-		const menuInstall = container.querySelector('.menu-panel .install-block');
-		if (sidebarInstall) sidebarInstall.outerHTML = newBlock;
-		if (menuInstall) menuInstall.outerHTML = newBlock;
-		const newInstallBtn = container.querySelector('#install-btn');
-		if (newInstallBtn) {
-			newInstallBtn.addEventListener('click', () => {
-				promptInstall();
-			});
-		}
-	});
+	// Keep exactly one live set of window listeners, so navigation does not stack them.
+	if (themeRefresh) window.removeEventListener('stead-theme-change', themeRefresh);
+	themeRefresh = updateThemeControls;
+	window.addEventListener('stead-theme-change', themeRefresh);
+
+	if (installRefresh) {
+		window.removeEventListener('stead-install-available', installRefresh);
+		window.removeEventListener('stead-install-changed', installRefresh);
+	}
+	installRefresh = () => {
+		container.querySelectorAll('.install-slot').forEach((slot) => {
+			slot.innerHTML = installBlock();
+		});
+	};
+	window.addEventListener('stead-install-available', installRefresh);
+	window.addEventListener('stead-install-changed', installRefresh);
 
 	updateThemeControls();
 

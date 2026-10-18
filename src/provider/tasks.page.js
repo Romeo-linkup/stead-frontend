@@ -4,6 +4,7 @@ import { apiFetch } from '../shared/api.js';
 import { toast } from '../shared/toast.js';
 import { capitalise, formatDueDate } from '../shared/format.js';
 import { icon } from '../shared/icons.js';
+import { personLine } from '../shared/avatar.js';
 
 export async function renderTasks(root) {
   const content = renderShell(root, { activeHref: '#/provider/tasks', title: 'My tasks' });
@@ -81,6 +82,7 @@ export async function renderTasks(root) {
           </div>
           <p style="margin:8px 0 4px;">${escapeHtml(task.description || '')}</p>
           <p class="small" style="color:var(--slate);margin:0;">${escapeHtml(task.property_name || 'Property')} - Unit ${escapeHtml(String(task.unit_number || task.unit_id || ''))}</p>
+          ${task.reported_by_name ? `<div style="margin-top:8px;">${personLine(task.reported_by_avatar_url, task.reported_by_name, 'Reported by')}</div>` : ''}
           ${createdDate ? `<p class="small muted" style="margin:4px 0 0;">Reported ${escapeHtml(createdDate)}</p>` : ''}
           ${task.status === 'outstanding' ? `
             <button class="btn secondary sm" data-accept="${taskId}" type="button" style="margin-top:12px;">Accept task</button>

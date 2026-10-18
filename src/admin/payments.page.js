@@ -3,6 +3,7 @@ import { renderShell } from '../shared/shell.js';
 import { apiFetch } from '../shared/api.js';
 import { toast } from '../shared/toast.js';
 import { formatMoney, formatDueDate, capitalise } from '../shared/format.js';
+import { avatarHtml } from '../shared/avatar.js';
 
 const STATUS_BADGE = {
 	paid: { cls: 'finished', label: 'Paid' },
@@ -38,8 +39,12 @@ export function renderPayments(root) {
 async function loadPaymentsData() {
 	try {
 		// apiFetch already returns parsed JSON (or throws) — no .ok/.json() needed.
-		const [payments, units] = await Promise.all([apiFetch('/payments'), apiFetch('/units')]);
-		renderPaymentsTable(payments, units);
+		const [payments, units, tenants] = await Promise.all([
+			apiFetch('/payments'),
+			apiFetch('/units'),
+			apiFetch('/users?role=tenant').catch(() => []),
+		]);
+		renderPaymentsTable(payments, units, tenants);
 		updateKPIs(payments);
 	} catch (err) {
 		console.error('Failed to load payments data:', err);
@@ -63,7 +68,7 @@ function sortPayments(payments) {
 	return [...unpaid, ...paid];
 }
 
-function renderPaymentsTable(payments, units) {
+function renderPaymentsTable(payments, units, tenants = []) {
 	const tbody = document.getElementById('payments-table-body');
 	if (!tbody) return;
 
@@ -77,6 +82,11 @@ function renderPaymentsTable(payments, units) {
 		unitMap[unit.id] = unit;
 	});
 
+	const tenantsById = {};
+	tenants.forEach((t) => {
+		tenantsById[t.id] = t;
+	});
+
 	const byId = {};
 	payments.forEach((payment) => {
 		byId[payment.id] = payment;
@@ -88,7 +98,10 @@ function renderPaymentsTable(payments, units) {
 			const unitNumber = unit ? unit.unit_number : 'Unknown';
 			// /units exposes no tenant name yet — fall back to occupancy.
 			const tenantName = unit ? unit.tenant_name || unit.tenantName || '' : '';
-			const tenant = tenantName || (unit && unit.tenant_user_id ? 'Tenant' : 'Vacant');
+			const tenantUser = unit && unit.tenant_user_id ? tenantsById[unit.tenant_user_id] : null;
+			const tenantCell = tenantUser
+				? `<div class="person-line">${avatarHtml(tenantUser.avatar_url, tenantUser.name, 32)}<span>${escapeHtml(tenantUser.name)}</span></div>`
+				: escapeHtml(tenantName || (unit && unit.tenant_user_id ? 'Tenant' : 'Vacant'));
 
 			const badge = STATUS_BADGE[payment.status] || { cls: payment.status, label: String(payment.status || '') };
 
@@ -113,7 +126,7 @@ function renderPaymentsTable(payments, units) {
 			return `
 				<tr>
 					<td>${escapeHtml(unitNumber)}</td>
-					<td>${escapeHtml(tenant)}</td>
+					<td>${tenantCell}</td>
 					<td>${escapeHtml(`${capitalise(payment.type)} · ${formatMoney(payment.amount)}`)}<div class="small muted">Due ${escapeHtml(formatDueDate(payment.due_date, 'short'))}</div>${proofBlock}</td>
 					<td><span class="badge ${badge.cls}">${escapeHtml(badge.label)}</span></td>
 					<td>${actionCell}</td>
