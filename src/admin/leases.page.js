@@ -312,9 +312,17 @@ async function renderLeaseForm(content, { unitId = null, leaseId = null }) {
     notice_period_months: initialNoticePeriod,
     cancellation_penalty: lease?.cancellation_penalty ?? '',
   };
+
+  const titlesLocked = Boolean(lease) && lease.status !== 'draft';
+  const savedTitles = terms.clause_titles && typeof terms.clause_titles === 'object' && !Array.isArray(terms.clause_titles)
+    ? terms.clause_titles
+    : {};
+  const titleFor = (key, label) => (typeof savedTitles[key] === 'string' && savedTitles[key].trim() ? savedTitles[key] : label);
   const clauseFields = CLAUSES.map(([key, label, fallback]) => `
-    <div class="field">
-      <label class="field-label" for="clause-${key}">${escapeHtml(label)}</label>
+    <div class="field clause-field">
+      <label class="field-label" for="clause-title-${key}">Heading</label>
+      <input class="field" id="clause-title-${key}" name="clause_title_${key}" maxlength="60" value="${escapeHtml(titleFor(key, label))}" ${titlesLocked ? 'disabled' : ''} required>
+      <label class="field-label" for="clause-${key}">Text</label>
       <textarea class="field" id="clause-${key}" name="clause_${key}" rows="4">${escapeHtml(terms[key] ?? fallback)}</textarea>
     </div>
   `).join('');
@@ -342,7 +350,7 @@ async function renderLeaseForm(content, { unitId = null, leaseId = null }) {
           ${numberInput('cancellation_penalty', 'Cancellation penalty (R) optional', initial.cancellation_penalty, '0', '', '0.01', false)}
         </div>
       </section>
-      <section class="card"><h3>Clauses</h3>${clauseFields}</section>
+      <section class="card"><h3>Clauses</h3><p class="small muted">${titlesLocked ? 'Clause headings are locked because this lease has been sent. Save to withdraw it to draft, then you can rename them.' : 'You can rename the clause headings until the lease is sent.'}</p>${clauseFields}</section>
       <div class="row lease-form-actions">
         <button class="btn brass" type="submit">${lease ? 'Save changes' : 'Save as draft'}</button>
         <button class="btn secondary" id="cancel-lease" type="button">Cancel</button>
@@ -367,6 +375,10 @@ async function renderLeaseForm(content, { unitId = null, leaseId = null }) {
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     if (!form.reportValidity()) return;
+    if (!titlesLocked && CLAUSES.some(([key]) => !form.elements[`clause_title_${key}`].value.trim())) {
+      toast('Every clause needs a heading.');
+      return;
+    }
     const body = {
       lessor_name: form.elements.lessor_name.value.trim(),
       lessor_id_number: form.elements.lessor_id_number.value.trim(),
@@ -380,6 +392,12 @@ async function renderLeaseForm(content, { unitId = null, leaseId = null }) {
       terms_json: {
         ...Object.fromEntries(CLAUSES.map(([key]) => [key, form.elements[`clause_${key}`].value])),
         notice_period_months: Number(form.elements.notice_period_months.value),
+        clause_titles: Object.fromEntries(CLAUSES.map(([key, label]) => [
+          key,
+          titlesLocked
+            ? titleFor(key, label)
+            : form.elements[`clause_title_${key}`].value.replace(/\s+/g, ' ').trim(),
+        ])),
       },
     };
     if (form.elements.rent_increase_pct.value !== '') body.rent_increase_pct = Number(form.elements.rent_increase_pct.value);

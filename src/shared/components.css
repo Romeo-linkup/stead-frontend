@@ -394,6 +394,13 @@ table.list td { padding: 10px; border-bottom: 1px solid var(--line); }
   margin-top: 16px;
 }
 
+.user-av-placeholder { color: var(--muted, #8a8f8c); }
+.user-av-placeholder svg { width: 62%; height: 62%; display: block; }
+.photo-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.cashflow .cf-property-pick { max-width: 360px; margin-bottom: 12px; }
+.cashflow .cf-unassigned { border-left: 3px solid var(--brass, #a8813a); }
+
 .topbar-titles { display: flex; flex-direction: column; min-width: 0; }
 .topbar-biz {
 	font-size: .7rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;

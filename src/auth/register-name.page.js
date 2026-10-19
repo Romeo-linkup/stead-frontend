@@ -17,7 +17,7 @@ export function renderRegisterName(root, { role, district_name } = {}) {
           First, tell us who you are.
         </p>
         <form id="register-form">
-          ${needsPhoto ? '<div id="photo-slot"></div>' : ''}
+          ${needsPhoto ? '<div class="field"><label class="field-label">Profile photo (optional)</label><div id="photo-slot"></div></div>' : ''}
           <div class="field">
             <label class="field-label" for="name">Full name</label>
             <input class="field" id="name" name="name" required />
@@ -51,12 +51,6 @@ export function renderRegisterName(root, { role, district_name } = {}) {
     e.preventDefault();
     errorBox.style.display = 'none';
 
-    if (needsPhoto && !picker.getFile()) {
-      errorBox.textContent = 'Please add your photo to continue.';
-      errorBox.style.display = 'block';
-      return;
-    }
-
     const preToken = getPreToken();
     if (!preToken) {
       errorBox.textContent = 'Your session expired — please enter your code again.';
@@ -71,7 +65,7 @@ export function renderRegisterName(root, { role, district_name } = {}) {
       let body;
       let headers;
 
-      if (needsPhoto) {
+      if (needsPhoto && picker.getFile()) {
         const formData = new FormData();
         formData.append('name', form.name.value.trim());
         formData.append('phone', form.phone.value.trim() || '');

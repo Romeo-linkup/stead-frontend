@@ -11,14 +11,15 @@ function escapeAttr(value) {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-// Round photo, or the person's initial when they have no photo. Use this everywhere a person is shown.
+const SILHOUETTE = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="9" r="4" fill="currentColor"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8z" fill="currentColor"/></svg>';
+
+// Round photo, or a neutral silhouette for people who haven't added one.
 export function avatarHtml(url, name, size = 40) {
-  const style = `width:${size}px;height:${size}px;font-size:${Math.round(size * 0.42)}px`;
+  const style = `width:${size}px;height:${size}px`;
   if (url && String(url).startsWith('https://')) {
     return `<img class="user-av" style="${style}" src="${escapeAttr(url)}" alt="${escapeAttr(name || '')}" width="${size}" height="${size}" loading="lazy">`;
   }
-  const initial = escapeHtml((name || '?').trim().charAt(0).toUpperCase() || '?');
-  return `<span class="user-av user-av-initial" style="${style}" aria-hidden="true">${initial}</span>`;
+  return `<span class="user-av user-av-placeholder" style="${style}" role="img" aria-label="${escapeAttr(name ? `${name} (no photo)` : 'No photo')}">${SILHOUETTE}</span>`;
 }
 
 function loadImage(file) {

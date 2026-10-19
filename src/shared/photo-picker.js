@@ -1,14 +1,17 @@
 // src/shared/photo-picker.js
 import { avatarHtml, resizeToSquareJpeg } from './avatar.js';
 
-export function renderPhotoPicker(container, { initialUrl = '', name = '', onChange } = {}) {
+export function renderPhotoPicker(container, { initialUrl = '', name = '', onChange, onRemove } = {}) {
   container.innerHTML = `
     <div class="photo-picker">
       <div class="photo-preview" data-photo-preview>${avatarHtml(initialUrl, name, 96)}</div>
       <div class="photo-picker-side">
-        <button type="button" class="btn secondary sm" data-photo-choose>${initialUrl ? 'Change photo' : 'Add photo'}</button>
+        <div class="photo-buttons">
+          <button type="button" class="btn secondary sm" data-photo-choose>${initialUrl ? 'Change photo' : 'Add photo'}</button>
+          <button type="button" class="btn danger sm" data-photo-remove ${initialUrl && onRemove ? '' : 'hidden'}>Remove photo</button>
+        </div>
         <input type="file" accept="image/*" hidden data-photo-input>
-        <p class="small muted" style="margin:6px 0 0;">A clear photo of your face. The people you deal with on Stead will see it.</p>
+        <p class="small muted" style="margin:6px 0 0;">Optional. A clear photo of your face helps the people you deal with on Stead recognise you.</p>
         <div class="error-text" data-photo-error hidden></div>
       </div>
     </div>
@@ -18,6 +21,7 @@ export function renderPhotoPicker(container, { initialUrl = '', name = '', onCha
   const preview = container.querySelector('[data-photo-preview]');
   const errorEl = container.querySelector('[data-photo-error]');
   const chooseBtn = container.querySelector('[data-photo-choose]');
+  const removeBtn = container.querySelector('[data-photo-remove]');
   let selected = null;
   let previewUrl = null;
 
@@ -46,6 +50,24 @@ export function renderPhotoPicker(container, { initialUrl = '', name = '', onCha
     }
   });
 
+  removeBtn.addEventListener('click', async () => {
+    if (!onRemove || !window.confirm('Remove your profile photo?')) return;
+    removeBtn.disabled = true;
+    try {
+      await onRemove();
+      initialUrl = '';
+      selected = null;
+      preview.innerHTML = avatarHtml('', name, 96);
+      chooseBtn.textContent = 'Add photo';
+      removeBtn.hidden = true;
+      showError('');
+    } catch (err) {
+      showError(err.message || 'Could not remove your photo.');
+    } finally {
+      removeBtn.disabled = false;
+    }
+  });
+
   return {
     getFile: () => selected,
     hasPhoto: () => Boolean(selected || initialUrl),
@@ -53,6 +75,8 @@ export function renderPhotoPicker(container, { initialUrl = '', name = '', onCha
     markSaved(url) {
       initialUrl = url;
       selected = null;
+      chooseBtn.textContent = 'Change photo';
+      removeBtn.hidden = !onRemove;
     },
   };
 }

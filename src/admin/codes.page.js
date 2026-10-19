@@ -216,14 +216,13 @@ content.innerHTML = `
     const listEl = content.querySelector('#codes-list');
     try {
       const codes = await apiFetch('/codes');
-      if (!codes.length) {
-        listEl.innerHTML = '<p style="color:var(--slate);">No codes issued yet.</p>';
+      const activeCodes = codes.filter((code) => code.active);
+      if (!activeCodes.length) {
+        listEl.innerHTML = '<p style="color:var(--slate);">No active codes.</p>';
         return;
       }
 
-      const sortedCodes = [...codes].sort((a, b) => {
-        const activeDifference = Number(b.active) - Number(a.active);
-        if (activeDifference) return activeDifference;
+      const sortedCodes = [...activeCodes].sort((a, b) => {
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       });
       listEl.innerHTML = sortedCodes.map((code) => {
@@ -241,9 +240,7 @@ content.innerHTML = `
               <span class="small" style="font-family:'Newsreader',serif;">${escapeHtml(code.code)}</span>
             </div>
             ${unitProperty}
-            ${code.active
-              ? `<div class="row" style="margin-top:8px;"><span class="badge finished">Active</span><button class="btn secondary sm revoke-btn" data-id="${escapeAttr(code.id)}" type="button">Revoke</button></div>`
-              : '<p class="small muted" style="margin:8px 0 0;">Revoked</p>'}
+            <div class="row" style="margin-top:8px;"><span class="badge finished">Active</span><button class="btn secondary sm revoke-btn" data-id="${escapeAttr(code.id)}" type="button">Revoke</button></div>
           </div>
         `;
       }).join('');

@@ -2,7 +2,6 @@ import { renderShell } from '../shared/shell.js';
 import { apiFetch } from '../shared/api.js';
 import { toast } from '../shared/toast.js';
 import { renderPhotoPicker } from '../shared/photo-picker.js';
-import { markAvatarPresent } from '../shared/avatar-gate.js';
 import { getCurrentUser } from '../auth/session.js';
 
 export function renderProfile(root) {
@@ -96,10 +95,14 @@ async function loadProfile() {
 		renderEmailBadge(user);
 
 		const photoSlot = document.getElementById('photo-slot');
+		const savePhotoBtn = document.getElementById('save-photo');
 		if (photoSlot) {
 			photoPicker = renderPhotoPicker(photoSlot, { initialUrl: user.avatar_url, name: user.name, onChange: () => {
-				const savePhotoBtn = document.getElementById('save-photo');
 				if (savePhotoBtn) savePhotoBtn.hidden = false;
+			}, onRemove: async () => {
+				await apiFetch('/users/me/avatar', { method: 'DELETE' });
+				savePhotoBtn.hidden = true;
+				toast('Photo removed.');
 			}});
 		}
 	} catch (err) {
@@ -171,7 +174,6 @@ function setupPhotoHandler() {
 			data.append('photo', file);
 			const res = await apiFetch('/users/me/avatar', { method: 'POST', body: data, isFormData: true });
 			photoPicker.markSaved(res.avatar_url);
-			markAvatarPresent(getCurrentUser().user_id);
 			savePhotoBtn.hidden = true;
 			toast('Photo saved.');
 		} catch (err) {
