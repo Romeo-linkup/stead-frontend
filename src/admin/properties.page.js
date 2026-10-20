@@ -27,11 +27,11 @@ export async function renderProperties(root) {
 		<div id="properties-content">Loading...</div>
 	`;
 
-	await renderAddProperty(content, isOwner);
+	await renderAddProperty(content, isOwner, () => loadPropertiesData(content, canManagePhotos));
 	await loadPropertiesData(content, canManagePhotos);
 }
 
-async function renderAddProperty(content, isOwner) {
+async function renderAddProperty(content, isOwner, onChanged) {
 	const container = content.querySelector('#add-property-card');
 	let districtOptions = '';
 	let districts = [];
@@ -132,7 +132,7 @@ async function renderAddProperty(content, isOwner) {
 			toast('Property created.');
 			form.reset();
 			countEl.textContent = '0 units';
-			await loadPropertiesData(content);
+			await onChanged();
 		} catch (err) {
 			errorBox.textContent = err.message || 'Could not create property.';
 			errorBox.style.display = 'block';
@@ -145,6 +145,7 @@ async function renderAddProperty(content, isOwner) {
 
 async function loadPropertiesData(content, canManagePhotos) {
 	const container = content.querySelector('#properties-content');
+	const canDelete = ['owner', 'admin'].includes(getCurrentUser()?.role);
 	try {
 		const [properties, summary, units] = await Promise.all([
 			apiFetch('/properties'),
@@ -238,6 +239,7 @@ async function loadPropertiesData(content, canManagePhotos) {
 						</form>
 						${renderUnitsDisclosure(property, propertyUnits)}
 						${canManagePhotos ? renderPhotoActions(property, hasPhoto) : ''}
+						${canDelete ? renderDeleteAction(property, propertyUnits.length) : ''}
 					</div>
 				`;
 			});
@@ -281,6 +283,22 @@ async function loadPropertiesData(content, canManagePhotos) {
 
 		wireUnitsEvents(content);
 		wirePhotoEvents(content);
+
+		container.querySelectorAll('.property-delete-btn').forEach((btn) => {
+			btn.addEventListener('click', async () => {
+				const name = btn.dataset.name || 'this property';
+				if (!window.confirm(`Delete "${name}"? This can't be undone.`)) return;
+				btn.disabled = true;
+				try {
+					await apiFetch(`/properties/${encodeURIComponent(btn.dataset.propertyId)}`, { method: 'DELETE' });
+					toast('Property deleted.');
+					await loadPropertiesData(content, canManagePhotos);
+				} catch (err) {
+					toast(err.message || 'Could not delete the property.');
+					btn.disabled = false;
+				}
+			});
+		});
 	} catch (err) {
 		container.innerHTML = `<div class="card"><p class="error-text">${escapeHtml(err.message)}</p></div>`;
 	}
@@ -491,6 +509,13 @@ function renderPhotoActions(property, hasPhoto) {
 			${hasPhoto ? `<button type="button" class="btn danger sm photo-remove-btn" data-property-id="${escapeAttr(property.id)}">Remove photo</button>` : ''}
 		</div>
 	`;
+}
+
+function renderDeleteAction(property, unitCount) {
+	if (unitCount > 0) {
+		return `<p class="small muted" style="margin:10px 0 0;">To delete this property, first delete its ${unitCount} unit${unitCount === 1 ? '' : 's'}.</p>`;
+	}
+	return `<div style="margin-top:10px;"><button type="button" class="btn danger sm property-delete-btn" data-property-id="${escapeAttr(property.id)}" data-name="${escapeAttr(property.name)}">Delete property</button></div>`;
 }
 
 function wirePhotoEvents(content) {

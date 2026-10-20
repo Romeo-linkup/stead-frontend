@@ -93,6 +93,7 @@ export async function renderCashflow(root) {
 	let view = 'all'; // 'all' or a property id as a string
 	let editing = null; // { mode: 'add', direction } or { mode: 'edit', item }
 	let tab = 'overview';
+	let rentPanel = null; // { includeVacant, data, loading, error }
 
 	content.innerHTML = `
 		<div class="cashflow">
@@ -119,6 +120,7 @@ export async function renderCashflow(root) {
 		if (!button || button.dataset.tab === tab) return;
 		tab = button.dataset.tab;
 		editing = null;
+		rentPanel = null;
 		draw();
 	});
 
@@ -186,7 +188,10 @@ export async function renderCashflow(root) {
 			<div class="card">
 				<div class="row" style="margin-bottom:10px;">
 					<b class="${cls}">${escapeHtml(title)}</b>
-					<button class="btn secondary sm" type="button" data-add="${direction}">+ Add</button>
+					<span class="cf-head-actions">
+						${direction === 'in' ? '<button class="btn secondary sm" type="button" data-rent>Fill from unit rents</button>' : ''}
+						<button class="btn secondary sm" type="button" data-add="${direction}">+ Add</button>
+					</span>
 				</div>
 				${rows.length === 0 ? '<p class="small muted">Nothing added yet.</p>' : `
 					<div class="table-wrap">
@@ -271,6 +276,7 @@ export async function renderCashflow(root) {
 			<p class="small muted" style="margin:0 0 6px;">Whole portfolio, all properties added together.</p>
 			${kpiHtml(totals)}
 			<div id="cf-editor-slot">${editing ? editorHtml() : ''}</div>
+			<div id="cf-rent-slot"></div>
 			${unassignedRows.length ? `
 				<div class="card cf-unassigned">
 					<b>Unassigned items (${unassignedRows.length})</b>
@@ -309,6 +315,7 @@ export async function renderCashflow(root) {
 			<p class="small muted" style="margin:0 0 6px;">Every amount is a monthly figure for this property. An item set to the 29th–31st falls on the last day of shorter months. Changes to amounts and dates need a reason and are recorded in History.</p>
 			${kpiHtml(property.totals)}
 			<div id="cf-editor-slot">${editing ? editorHtml() : ''}</div>
+			<div id="cf-rent-slot">${rentPanel ? rentPanelHtml() : ''}</div>
 			${listCard('in', 'Money in', rows.filter((r) => r.direction === 'in'))}
 			${listCard('out', 'Money out', rows.filter((r) => r.direction === 'out'))}
 		`;
@@ -406,11 +413,13 @@ export async function renderCashflow(root) {
 				toast('Changes saved.');
 			}
 			editing = null;
+			rentPanel = null;
 			await load();
 		} catch (err) {
 			toast(err.message || 'Could not save.');
 			if (String(err.message).includes('changed by someone else')) {
 				editing = null;
+				rentPanel = null;
 				await load();
 				return;
 			}
@@ -431,13 +440,94 @@ export async function renderCashflow(root) {
 			});
 			toast('Item removed.');
 			editing = null;
+			rentPanel = null;
 			await load();
 		} catch (err) {
 			toast(err.message || 'Could not remove the item.');
 			if (String(err.message).includes('changed by someone else')) {
 				editing = null;
+				rentPanel = null;
 				await load();
 			}
+		}
+	}
+
+	function rentPanelHtml() {
+		const p = rentPanel;
+		const d = p.data;
+		let inner;
+		if (p.loading) {
+			inner = '<p class="small muted">Loading unit rents...</p>';
+		} else if (p.error) {
+			inner = `<p class="error-text">${escapeHtml(p.error)}</p>`;
+		} else {
+			inner = `
+				<label class="cf-check"><input type="checkbox" id="cf-rent-vacant" ${p.includeVacant ? 'checked' : ''}> <span class="small">Include vacant units</span></label>
+				<p class="small muted" style="margin:6px 0 10px;">${d.units_counted} of ${d.units_total} units counted${d.units_without_rent ? ` · ${d.units_without_rent} with no rent set are skipped` : ''}.</p>
+				${d.groups.length ? `
+					<div class="table-wrap">
+						<table class="simple">
+							<thead><tr><th>Rent due on day</th><th class="cf-amount">Units</th><th class="cf-amount">Monthly rent</th></tr></thead>
+							<tbody>
+								${d.groups.map((g) => `<tr><td>${g.day}</td><td class="cf-amount">${g.units}</td><td class="cf-amount cf-in">${escapeHtml(rand(g.total))}</td></tr>`).join('')}
+								<tr class="cf-total-row"><td colspan="2">Total per month</td><td class="cf-amount cf-in">${escapeHtml(rand(d.total))}</td></tr>
+							</tbody>
+						</table>
+					</div>
+				` : '<p class="small muted">No unit rents to add. Set the rent on each unit first (Properties page).</p>'}
+				${d.already_added ? '<p class="error-text">Rent from units was already added for this property. Edit or remove those items first.</p>' : ''}
+			`;
+		}
+		const canConfirm = !p.loading && !p.error && d && d.groups.length > 0 && !d.already_added;
+		return `
+			<div class="card" id="cf-rent">
+				<b>Fill from unit rents</b>
+				<p class="small muted" style="margin:4px 0 10px;">Creates ordinary money-in items from the rent set on this property's units. You can edit or remove them afterwards. They are not kept in sync, so update them by hand if a unit's rent changes.</p>
+				${inner}
+				<div class="row" style="gap:8px; flex-wrap:wrap; margin-top:10px;">
+					<button class="btn brass" type="button" data-rent-confirm ${canConfirm ? '' : 'disabled'}>Add these rent items</button>
+					<button class="btn secondary" type="button" data-rent-cancel>Cancel</button>
+				</div>
+			</div>
+		`;
+	}
+
+	async function loadRentPreview() {
+		rentPanel.loading = true;
+		rentPanel.error = '';
+		drawOverview();
+		try {
+			rentPanel.data = await apiFetch(`/cashflow/rent-preview?property_id=${encodeURIComponent(view)}&include_vacant=${rentPanel.includeVacant}`);
+		} catch (err) {
+			rentPanel.data = null;
+			rentPanel.error = err.message || 'Could not load unit rents.';
+		}
+		rentPanel.loading = false;
+		drawOverview();
+	}
+
+	function openRentPanel() {
+		editing = null;
+		rentPanel = { includeVacant: false, data: null, loading: true, error: '' };
+		loadRentPreview();
+		body.querySelector('#cf-rent')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+	}
+
+	async function confirmRentPanel() {
+		const d = rentPanel?.data;
+		if (!d || !d.groups.length) return;
+		if (!window.confirm(`Add ${d.groups.length} rent item${d.groups.length === 1 ? '' : 's'} totalling ${rand(d.total)} per month?`)) return;
+		try {
+			await apiFetch('/cashflow/rent-from-units', {
+				method: 'POST',
+				body: { property_id: Number(view), include_vacant: rentPanel.includeVacant, expected_total: d.total },
+			});
+			toast('Rent items added.');
+			rentPanel = null;
+			await load();
+		} catch (err) {
+			toast(err.message || 'Could not add the rent items.');
+			if (String(err.message).includes('changed since')) await loadRentPreview();
 		}
 	}
 
@@ -447,33 +537,51 @@ export async function renderCashflow(root) {
 		const open = event.target.closest('[data-open]');
 		if (add) {
 			editing = { mode: 'add', direction: add.dataset.add };
+			rentPanel = null;
 			drawOverview();
 		} else if (edit) {
 			const item = items.find((i) => String(i.id) === edit.dataset.edit);
 			if (item) {
 				editing = { mode: 'edit', item };
+				rentPanel = null;
 				drawOverview();
 			}
 		} else if (open) {
 			view = open.dataset.open;
 			editing = null;
+			rentPanel = null;
 			drawOverview();
 		} else if (event.target.closest('[data-back]')) {
 			view = 'all';
 			editing = null;
+			rentPanel = null;
 			drawOverview();
 		} else if (event.target.closest('[data-cancel]')) {
 			editing = null;
+			rentPanel = null;
 			drawOverview();
 		} else if (event.target.closest('[data-archive]')) {
 			archiveCurrent();
+		} else if (event.target.closest('[data-rent]')) {
+			openRentPanel();
+		} else if (event.target.closest('[data-rent-cancel]')) {
+			rentPanel = null;
+			drawOverview();
+		} else if (event.target.closest('[data-rent-confirm]')) {
+			confirmRentPanel();
 		}
 	});
 
 	body.addEventListener('change', (event) => {
+		if (event.target.id === 'cf-rent-vacant' && rentPanel) {
+			rentPanel.includeVacant = event.target.checked;
+			loadRentPreview();
+			return;
+		}
 		if (event.target.id !== 'cf-property') return;
 		view = event.target.value;
 		editing = null;
+		rentPanel = null;
 		drawOverview();
 	});
 

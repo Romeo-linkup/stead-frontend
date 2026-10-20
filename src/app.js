@@ -6,6 +6,7 @@ import { renderLogin, routeToDashboard } from './auth/login.page.js';
 import { renderSignup } from './auth/signup.page.js';
 import { renderForgotPassword } from './auth/forgot-password.page.js';
 import { renderResetPassword } from './auth/reset-password.page.js';
+import { renderConfirmEmail } from './auth/confirm-email.page.js';
 import { renderDistricts } from './admin/districts.page.js';
 import { renderCodes } from './admin/codes.page.js';
 import { renderProperties } from './admin/properties.page.js';
@@ -99,6 +100,12 @@ async function router() {
       return;
     }
     renderPlatformLedger(root);
+    return;
+  }
+
+  // Confirm email route (works for signed-in and signed-out users)
+  if (bareHash === '#/confirm-email') {
+    renderConfirmEmail(root);
     return;
   }
 
