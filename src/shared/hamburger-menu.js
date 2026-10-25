@@ -83,7 +83,7 @@ const NAV = {
 		['#/admin/complaints', 'Complaints', 'message'],
 		['#/admin/payments', 'Payments', 'wallet'],
 		['#/admin/invoices', 'Invoices', 'invoice'],
-		['#/admin/cashflow', 'Cashflow', 'wallet', ['owner']],
+		['#/admin/cashflow', 'Cashflow', 'wallet', ['owner', 'admin']],
 		['#/admin/codes', 'Codes & roles', 'key'],
 		['#/admin/settings', 'Settings', 'sliders', ['owner', 'admin']],
 		['#/admin/audit', 'Audit log', 'list'],

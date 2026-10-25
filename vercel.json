@@ -1,6 +1,6 @@
 {
   "rewrites": [
-    { "source": "/", "destination": "/public/index.html" },
+    { "source": "/(.*)", "destination": "/index.html" },
     { "source": "/manifest.json", "destination": "/public/manifest.json" },
     { "source": "/icons/(.*)", "destination": "/public/icons/$1" },
     { "source": "/service-worker.js", "destination": "/public/service-worker.js" }

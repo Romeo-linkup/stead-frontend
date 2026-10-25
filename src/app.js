@@ -182,7 +182,7 @@ async function router() {
       break;
 
     case hash === '#/admin/cashflow':
-      if (user.role !== 'owner') return unauthorized();
+      if (!ADMIN_ROLES.includes(user.role)) return unauthorized();
       renderCashflow(root);
       break;
 

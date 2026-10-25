@@ -27,6 +27,8 @@ const zar = new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR' 
 const rand = (value) => zar.format(Number(value) || 0);
 const netLabel = (net) => (Number(net) < 0 ? `−${rand(Math.abs(Number(net)))}` : rand(net));
 const netClass = (status) => (status === 'profit' ? 'cf-in' : status === 'loss' ? 'cf-out' : '');
+const todayIso = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Johannesburg' });
+const dayLabel = (ymd) => (ymd ? new Date(`${ymd}T00:00:00`).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' }) : '');
 
 function escapeHtml(value) {
 	const div = document.createElement('div');
@@ -72,7 +74,7 @@ function categoryOptions(direction, selected) {
 function describeChange(h) {
 	const o = h.old_values || {};
 	const n = h.new_values || {};
-	if (h.change_type === 'create') return `Added ${rand(n.amount)} on day ${n.day_of_month}`;
+	if (h.change_type === 'create') return n.kind === 'one_off' ? `Paid ${rand(n.amount)} on ${dayLabel(n.paid_on)}` : `Added ${rand(n.amount)} on day ${n.day_of_month}`;
 	if (h.change_type === 'archive') return `Removed (was ${rand(o.amount)} on day ${o.day_of_month})`;
 	const parts = [];
 	if ((o.property_id ?? null) !== (n.property_id ?? null)) parts.push('Assigned to a property');
@@ -81,6 +83,8 @@ function describeChange(h) {
 	if (o.label !== n.label) parts.push(`Name "${o.label}" → "${n.label}"`);
 	if (o.category !== n.category) parts.push(`Category ${CATEGORY_LABELS[o.category] || o.category} → ${CATEGORY_LABELS[n.category] || n.category}`);
 	if ((o.note || '') !== (n.note || '')) parts.push('Note changed');
+	if ((o.bond_months_remaining ?? null) !== (n.bond_months_remaining ?? null)) parts.push(`Bond months left ${o.bond_months_remaining ?? '—'} → ${n.bond_months_remaining ?? '—'}`);
+	if ((o.paid_on ?? null) !== (n.paid_on ?? null)) parts.push(`Date paid ${dayLabel(o.paid_on)} → ${dayLabel(n.paid_on)}`);
 	return parts.join('; ') || 'No visible change';
 }
 
@@ -94,12 +98,15 @@ export async function renderCashflow(root) {
 	let editing = null; // { mode: 'add', direction } or { mode: 'edit', item }
 	let tab = 'overview';
 	let rentPanel = null; // { includeVacant, data, loading, error }
+	let oneOffs = [];
+	let actual = { this_month: '0.00', all_time: '0.00' };
+	let canEdit = true;
 
 	content.innerHTML = `
 		<div class="cashflow">
 			<div class="pagehead">
 				<h2>Cashflow</h2>
-				<p>Monthly money in and out, kept separately for each property. Only the owner can see this page.</p>
+				<p>Monthly money in and out, kept separately for each property.</p>
 			</div>
 			<div class="cf-tabs" id="cf-tabs"></div>
 			<div id="cf-body"><p class="small muted">Loading...</p></div>
@@ -131,6 +138,9 @@ export async function renderCashflow(root) {
 			properties = data.properties;
 			unassigned = data.unassigned;
 			totals = data.totals;
+			oneOffs = data.one_offs || [];
+			actual = data.actual || actual;
+			canEdit = data.can_edit !== false;
 			if (view !== 'all' && !properties.some((p) => String(p.id) === view)) view = 'all';
 			draw();
 		} catch (err) {
@@ -142,6 +152,10 @@ export async function renderCashflow(root) {
 		drawTabs();
 		if (tab === 'history') drawHistory();
 		else drawOverview();
+		const intro = content.querySelector('.pagehead p');
+		if (intro) intro.textContent = canEdit
+			? 'Monthly money in and out, kept separately for each property. Only the owner can change it.'
+			: 'Monthly money in and out, kept separately for each property. You have view-only access.';
 	}
 
 	function kpiHtml(t) {
@@ -168,15 +182,56 @@ export async function renderCashflow(root) {
 		`;
 	}
 
+	function bondLine(item) {
+		if (item.category !== 'bond_payment' || item.kind === 'one_off') return '';
+		if (!item.bond) return '<div class="small muted">Months left not set. Edit this item to add them.</div>';
+		const b = item.bond;
+		if (b.completed) return '<div class="small cf-in">Bond fully paid off. No longer counted in the monthly total.</div>';
+		return `<div class="small muted">${b.months_remaining} month${b.months_remaining === 1 ? '' : 's'} left · Paid so far ${escapeHtml(rand(b.paid))} · Still to pay ${escapeHtml(rand(b.remaining))}</div>`;
+	}
+
+	function oneOffRow(item) {
+		return `
+			<tr>
+				<td>${escapeHtml(item.label)}<div class="small muted">${escapeHtml(CATEGORY_LABELS[item.category] || item.category)}${item.source === 'maintenance' ? ' · Auto-recorded' : ''}${item.note ? ' · ' + escapeHtml(item.note) : ''}</div></td>
+				<td>${escapeHtml(dayLabel(item.paid_on))}</td>
+				<td class="cf-amount cf-out">${escapeHtml(rand(item.amount))}</td>
+				<td class="small">${escapeHtml(when(item.amount_updated_at))}<div class="small muted">by ${escapeHtml(item.amount_updated_by_name || 'unknown')}</div></td>
+				<td>${canEdit ? `<button class="btn secondary sm" type="button" data-edit="${escapeAttr(item.id)}">Edit</button>` : ''}</td>
+			</tr>
+		`;
+	}
+
+	function oneOffCard(property) {
+		const rows = oneOffs.filter((i) => String(i.property_id) === view);
+		const a = property.actual || { this_month: '0.00', all_time: '0.00' };
+		return `
+			<div class="card">
+				<div class="row" style="margin-bottom:10px;">
+					<b class="cf-out">Payments actually made</b>
+					${canEdit ? '<button class="btn secondary sm" type="button" data-add="out" data-kind="one_off">+ Add payment</button>' : ''}
+				</div>
+				<p class="small muted" style="margin:0 0 10px;">One-off money out, such as repairs and maintenance. Maintenance paid through the app is added here automatically. This month: <b>${escapeHtml(rand(a.this_month))}</b> · All time: <b>${escapeHtml(rand(a.all_time))}</b></p>
+				${rows.length === 0 ? '<p class="small muted">No one-off payments recorded yet.</p>' : `
+					<div class="table-wrap">
+						<table class="simple">
+							<thead><tr><th>Payment</th><th>Date paid</th><th class="cf-amount">Amount</th><th>Amount last updated</th><th></th></tr></thead>
+							<tbody>${rows.map(oneOffRow).join('')}</tbody>
+						</table>
+					</div>`}
+			</div>
+		`;
+	}
+
 	function itemRow(item, showDirection) {
 		const cls = item.direction === 'in' ? 'cf-in' : 'cf-out';
 		return `
 			<tr>
-				<td>${escapeHtml(item.label)}<div class="small muted">${showDirection ? `<span class="${cls}">${item.direction === 'in' ? 'Money in' : 'Money out'}</span> · ` : ''}${escapeHtml(CATEGORY_LABELS[item.category] || item.category)}${item.note ? ' · ' + escapeHtml(item.note) : ''}</div></td>
+				<td>${escapeHtml(item.label)}<div class="small muted">${showDirection ? `<span class="${cls}">${item.direction === 'in' ? 'Money in' : 'Money out'}</span> · ` : ''}${escapeHtml(CATEGORY_LABELS[item.category] || item.category)}${item.note ? ' · ' + escapeHtml(item.note) : ''}</div>${bondLine(item)}</td>
 				<td>${item.day_of_month}<div class="small muted">Next ${escapeHtml(nextOccurrence(item.day_of_month))}</div></td>
 				<td class="cf-amount ${cls}">${escapeHtml(rand(item.amount))}</td>
 				<td class="small">${escapeHtml(when(item.amount_updated_at))}<div class="small muted">by ${escapeHtml(item.amount_updated_by_name || 'unknown')}</div></td>
-				<td><button class="btn secondary sm" type="button" data-edit="${escapeAttr(item.id)}">Edit</button></td>
+				<td>${canEdit ? `<button class="btn secondary sm" type="button" data-edit="${escapeAttr(item.id)}">Edit</button>` : ''}</td>
 			</tr>
 		`;
 	}
@@ -188,10 +243,10 @@ export async function renderCashflow(root) {
 			<div class="card">
 				<div class="row" style="margin-bottom:10px;">
 					<b class="${cls}">${escapeHtml(title)}</b>
-					<span class="cf-head-actions">
+					${canEdit ? `<span class="cf-head-actions">
 						${direction === 'in' ? '<button class="btn secondary sm" type="button" data-rent>Fill from unit rents</button>' : ''}
 						<button class="btn secondary sm" type="button" data-add="${direction}">+ Add</button>
-					</span>
+					</span>` : ''}
 				</div>
 				${rows.length === 0 ? '<p class="small muted">Nothing added yet.</p>' : `
 					<div class="table-wrap">
@@ -210,11 +265,16 @@ export async function renderCashflow(root) {
 		const isEdit = editing.mode === 'edit';
 		const item = editing.item || {};
 		const direction = isEdit ? item.direction : editing.direction;
+		const isOneOff = (isEdit ? item.kind : editing.kind) === 'one_off';
 		const needsProperty = isEdit && item.property_id == null;
 		const selected = properties.find((p) => String(p.id) === view);
+		const startCategory = item.category || (isOneOff ? 'maintenance' : CATEGORIES[direction][0]);
+		const showBond = !isOneOff && startCategory === 'bond_payment';
+		const bondMonthsValue = item.bond && !item.bond.completed ? item.bond.months_remaining : '';
+		const where = selected ? ' — ' + selected.name : '';
 		const heading = isEdit
-			? 'Edit item'
-			: `${direction === 'in' ? 'Add money in' : 'Add money out'}${selected ? ' — ' + selected.name : ''}`;
+			? (isOneOff ? 'Edit payment' : 'Edit item')
+			: isOneOff ? `Add a payment made${where}` : `${direction === 'in' ? 'Add money in' : 'Add money out'}${where}`;
 		return `
 			<div class="card" id="cf-editor">
 				<b>${escapeHtml(heading)}</b>
@@ -228,27 +288,38 @@ export async function renderCashflow(root) {
 						<p class="small muted" style="margin:-4px 0 10px;">This item was entered before properties were required. Once it is assigned it can't be moved to another property.</p>
 					` : ''}
 					<label class="field-label" for="cf-category">Category</label>
-					<select class="field" id="cf-category">${categoryOptions(direction, item.category)}</select>
+					<select class="field" id="cf-category">${categoryOptions(direction, startCategory)}</select>
+					${isOneOff ? '' : `
+						<div id="cf-bond-wrap" ${showBond ? '' : 'hidden'}>
+							<label class="field-label" for="cf-bond-months">Months left on the bond</label>
+							<input class="field" id="cf-bond-months" type="number" min="1" max="600" inputmode="numeric" value="${escapeAttr(bondMonthsValue)}">
+							<p class="small muted" style="margin:-4px 0 10px;">The amount still to pay is worked out automatically: months left × the monthly amount. Each due date that passes counts as one month paid.</p>
+						</div>`}
 					<label class="field-label" for="cf-label">Name</label>
-					<input class="field" id="cf-label" maxlength="100" placeholder="e.g. Standard Bank bond" value="${escapeAttr(item.label || '')}">
+					<input class="field" id="cf-label" maxlength="100" placeholder="${isOneOff ? 'e.g. Geyser replacement' : 'e.g. Standard Bank bond'}" value="${escapeAttr(item.label || '')}">
 					<div class="grid2">
 						<div>
 							<label class="field-label" for="cf-amount">Amount (R)</label>
 							<input class="field" id="cf-amount" inputmode="decimal" placeholder="0.00" value="${escapeAttr(item.amount || '')}">
 						</div>
 						<div>
-							<label class="field-label" for="cf-day">Day of the month</label>
-							<input class="field" id="cf-day" type="number" min="1" max="31" inputmode="numeric" value="${escapeAttr(item.day_of_month || '')}">
+							${isOneOff ? `
+								<label class="field-label" for="cf-paid-on">Date paid</label>
+								<input class="field" id="cf-paid-on" type="date" max="${todayIso()}" value="${escapeAttr(item.paid_on || todayIso())}">
+							`:`
+								<label class="field-label" for="cf-day">Day of the month</label>
+								<input class="field" id="cf-day" type="number" min="1" max="31" inputmode="numeric" value="${escapeAttr(item.day_of_month || '')}">
+							`}
 						</div>
 					</div>
 					<label class="field-label" for="cf-note">Note (optional)</label>
 					<input class="field" id="cf-note" maxlength="300" value="${escapeAttr(item.note || '')}">
 					${isEdit ? `
 						<label class="field-label" for="cf-reason">Reason for change</label>
-						<textarea class="field" id="cf-reason" rows="2" maxlength="300" placeholder="Required when the amount, the day or the property changes, or to remove the item"></textarea>
+						<textarea class="field" id="cf-reason" rows="2" maxlength="300" placeholder="Required when the amount, the date, the months left or the property changes, or to remove the item"></textarea>
 					` : ''}
 					<div class="row" style="gap:8px; flex-wrap:wrap; margin-top:10px;">
-						<button class="btn brass" type="submit" id="cf-save">${isEdit ? 'Save changes' : 'Add item'}</button>
+						<button class="btn brass" type="submit" id="cf-save">${isEdit ? 'Save changes' : isOneOff ? 'Add payment' : 'Add item'}</button>
 						<button class="btn secondary" type="button" data-cancel>Cancel</button>
 						${isEdit ? '<button class="btn danger" type="button" data-archive>Remove item</button>' : ''}
 					</div>
@@ -275,6 +346,7 @@ export async function renderCashflow(root) {
 			${propertySelectHtml()}
 			<p class="small muted" style="margin:0 0 6px;">Whole portfolio, all properties added together.</p>
 			${kpiHtml(totals)}
+			<p class="small muted" style="margin:-4px 0 12px;">Payments actually made (one-off, including maintenance): this month <b>${escapeHtml(rand(actual.this_month))}</b> · all time <b>${escapeHtml(rand(actual.all_time))}</b></p>
 			<div id="cf-editor-slot">${editing ? editorHtml() : ''}</div>
 			<div id="cf-rent-slot"></div>
 			${unassignedRows.length ? `
@@ -318,6 +390,7 @@ export async function renderCashflow(root) {
 			<div id="cf-rent-slot">${rentPanel ? rentPanelHtml() : ''}</div>
 			${listCard('in', 'Money in', rows.filter((r) => r.direction === 'in'))}
 			${listCard('out', 'Money out', rows.filter((r) => r.direction === 'out'))}
+			${oneOffCard(property)}
 		`;
 		if (editing) body.querySelector('#cf-editor')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 	}
@@ -360,23 +433,39 @@ export async function renderCashflow(root) {
 		const isEdit = editing.mode === 'edit';
 		const item = editing.item;
 		const direction = isEdit ? item.direction : editing.direction;
+		const isOneOff = (isEdit ? item.kind : editing.kind) === 'one_off';
 		const assigning = isEdit && item.property_id == null;
 		const category = body.querySelector('#cf-category').value;
 		const label = body.querySelector('#cf-label').value.trim();
-		const dayRaw = body.querySelector('#cf-day').value.trim();
+		const dayRaw = isOneOff ? '' : body.querySelector('#cf-day').value.trim();
+		const paidOn = isOneOff ? body.querySelector('#cf-paid-on').value : '';
 		const amountRaw = normaliseAmount(body.querySelector('#cf-amount').value);
 		const note = body.querySelector('#cf-note').value.trim();
 		const reason = isEdit ? body.querySelector('#cf-reason').value.trim() : '';
+		const isBond = !isOneOff && category === 'bond_payment';
+		const monthsRaw = isBond ? body.querySelector('#cf-bond-months').value.trim() : '';
 		const propertyId = assigning ? Number(body.querySelector('#cf-assign').value) : Number(view);
 
 		if (!isEdit && !propertyId) return toast('Choose a property first.');
 		if (assigning && !propertyId) return toast('Choose which property this item belongs to.');
 		if (!label) return toast('Enter a name for this item.');
-		if (!/^\d{1,2}$/.test(dayRaw) || Number(dayRaw) < 1 || Number(dayRaw) > 31) return toast('Enter a day of the month between 1 and 31.');
+		if (isOneOff) {
+			if (!paidOn || paidOn > todayIso()) return toast('Enter the date the payment was made (today or earlier).');
+		} else if (!/^\d{1,2}$/.test(dayRaw) || Number(dayRaw) < 1 || Number(dayRaw) > 31) {
+			return toast('Enter a day of the month between 1 and 31.');
+		}
 		if (!AMOUNT_PATTERN.test(amountRaw) || Number(amountRaw) <= 0) return toast('Enter an amount above zero with at most 2 decimals.');
+		if (isBond) {
+			const settled = isEdit && item.bond && item.bond.completed && !monthsRaw;
+			if (!settled && (!/^\d{1,3}$/.test(monthsRaw) || Number(monthsRaw) < 1 || Number(monthsRaw) > 600)) {
+				return toast('Enter how many months are left on the bond (1 to 600).');
+			}
+		}
 
 		const saveBtn = body.querySelector('#cf-save');
 		const idle = saveBtn.textContent;
+		const dateFields = isOneOff ? { paid_on: paidOn } : { day_of_month: Number(dayRaw) };
+		const bondFields = isBond && monthsRaw ? { bond_months_remaining: Number(monthsRaw) } : {};
 
 		try {
 			if (!isEdit) {
@@ -384,20 +473,22 @@ export async function renderCashflow(root) {
 				saveBtn.textContent = 'Saving...';
 				await apiFetch('/cashflow', {
 					method: 'POST',
-					body: { property_id: propertyId, direction, category, label, day_of_month: Number(dayRaw), amount: amountRaw, note },
+					body: { property_id: propertyId, direction, category, label, amount: amountRaw, note, kind: isOneOff ? 'one_off' : 'monthly', ...dateFields, ...bondFields },
 				});
-				toast('Item added.');
+				toast(isOneOff ? 'Payment added.' : 'Item added.');
 			} else {
 				const amountChanged = cents(amountRaw) !== cents(item.amount);
-				const dayChanged = Number(dayRaw) !== item.day_of_month;
-				if ((amountChanged || dayChanged || assigning) && reason.length < 5) {
-					return toast('Please give a reason (at least 5 characters) for changing the amount, the date or the property.');
+				const dateChanged = isOneOff ? paidOn !== item.paid_on : Number(dayRaw) !== item.day_of_month;
+				const monthsChanged = Boolean(bondFields.bond_months_remaining) && (!item.bond || bondFields.bond_months_remaining !== item.bond.months_remaining);
+				if ((amountChanged || dateChanged || monthsChanged || assigning) && reason.length < 5) {
+					return toast('Please give a reason (at least 5 characters) for changing the amount, the date, the months left or the property.');
 				}
-				if (amountChanged || dayChanged || assigning) {
+				if (amountChanged || dateChanged || monthsChanged || assigning) {
 					const lines = [];
 					if (assigning) lines.push(`Property: ${properties.find((p) => p.id === propertyId)?.name || 'selected property'}`);
 					if (amountChanged) lines.push(`Amount: ${rand(item.amount)} → ${rand(amountRaw)}`);
-					if (dayChanged) lines.push(`Day: ${item.day_of_month} → ${Number(dayRaw)}`);
+					if (dateChanged) lines.push(isOneOff ? `Date paid: ${dayLabel(item.paid_on)} → ${dayLabel(paidOn)}` : `Day: ${item.day_of_month} → ${Number(dayRaw)}`);
+					if (monthsChanged) lines.push(`Bond months left: ${item.bond ? item.bond.months_remaining : 'not set'} → ${bondFields.bond_months_remaining}`);
 					if (!window.confirm(`Change "${item.label}"?\n\n${lines.join('\n')}\n\nThis will be recorded in History.`)) return;
 				}
 				saveBtn.disabled = true;
@@ -405,8 +496,8 @@ export async function renderCashflow(root) {
 				await apiFetch(`/cashflow/${encodeURIComponent(item.id)}`, {
 					method: 'PATCH',
 					body: {
-						category, label, day_of_month: Number(dayRaw), amount: amountRaw, note, reason,
-						expected_version: item.version,
+						category, label, amount: amountRaw, note, reason, expected_version: item.version,
+						...dateFields, ...bondFields,
 						...(assigning ? { property_id: propertyId } : {}),
 					},
 				});
@@ -535,12 +626,13 @@ export async function renderCashflow(root) {
 		const add = event.target.closest('[data-add]');
 		const edit = event.target.closest('[data-edit]');
 		const open = event.target.closest('[data-open]');
+		if (!canEdit && (add || edit || event.target.closest('[data-rent]') || event.target.closest('[data-archive]') || event.target.closest('[data-rent-confirm]'))) return;
 		if (add) {
-			editing = { mode: 'add', direction: add.dataset.add };
+			editing = { mode: 'add', direction: add.dataset.add, kind: add.dataset.kind || 'monthly' };
 			rentPanel = null;
 			drawOverview();
 		} else if (edit) {
-			const item = items.find((i) => String(i.id) === edit.dataset.edit);
+			const item = items.concat(oneOffs).find((i) => String(i.id) === edit.dataset.edit);
 			if (item) {
 				editing = { mode: 'edit', item };
 				rentPanel = null;
@@ -573,6 +665,11 @@ export async function renderCashflow(root) {
 	});
 
 	body.addEventListener('change', (event) => {
+		if (event.target.id === 'cf-category') {
+			const wrap = body.querySelector('#cf-bond-wrap');
+			if (wrap) wrap.hidden = event.target.value !== 'bond_payment';
+			return;
+		}
 		if (event.target.id === 'cf-rent-vacant' && rentPanel) {
 			rentPanel.includeVacant = event.target.checked;
 			loadRentPreview();
